@@ -12,6 +12,7 @@
         pkgs = import nixpkgs { inherit system; };
         
         pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+          pip
           matplotlib
           numpy
         ]);
@@ -23,10 +24,23 @@
           fontconfig
           freetype
         ];
+
+        netTools = with pkgs; [
+          pkgs.iputils
+          pkgs.traceroute
+        ];
+
+        latexTools = pkgs.texlive.withPackages (ps: [
+          ps.latexmk
+          ps.scheme-medium
+        ]);
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pythonEnv ];
+          buildInputs = [
+            pythonEnv
+            netTools
+          ];
 
           shellHook = ''
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}:$LD_LIBRARY_PATH"

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Generate all assignment plots as PNG files."""
 
 import argparse
 import json

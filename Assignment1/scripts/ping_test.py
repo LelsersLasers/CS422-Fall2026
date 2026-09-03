@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Ping every target and write JSON results."""
 
 import argparse
 import json

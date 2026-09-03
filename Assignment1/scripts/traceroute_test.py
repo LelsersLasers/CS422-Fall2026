@@ -66,11 +66,10 @@ def main() -> None:
     args = parser.parse_args()
 
     all_targets = read_targets(args.targets)
-    if len(all_targets) > 20:
-        selected_targets = random.sample(all_targets, 20)
+    if len(all_targets) > 10:
+        selected_targets = random.sample(all_targets, 10)
     else:
         selected_targets = all_targets
-    selected_targets = all_targets
 
     results = [
         traceroute(t, args.max_hops, args.timeout)

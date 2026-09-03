@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Geolocate responsive IPs using ipwho.is and write JSON."""
 
 import argparse
 import json

@@ -12,7 +12,8 @@ DATA_JSON = Path(ROOT, "data", "listed_iperf3_servers.json")
 
 
 def run(cmd):
-    print(" $ ", " ".join(map(str, cmd)))
+    print("\n$", " ".join(map(str, cmd)))
+    print("=" * 80)
     subprocess.run(cmd, cwd=ROOT, check=True)
 
 

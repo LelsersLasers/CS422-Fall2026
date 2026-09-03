@@ -15,6 +15,7 @@
           pip
           matplotlib
           numpy
+          requests
         ]);
 
         runtimeLibs = with pkgs; [

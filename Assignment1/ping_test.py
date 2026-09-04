@@ -40,13 +40,16 @@ def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
             "max_ms": None,
         }
 
-    print(f"\tResults for {target}: {match.group(1)}/{match.group(2)}/{match.group(3)}")
+    min = float(match.group(1))
+    avg = float(match.group(2))
+    max = float(match.group(3))
+    print(f"\t{target}: min={min:.1f} ms, avg={avg:.1f} ms, max={max:.1f} ms")
     return {
         "target": target,
         "responsive": True,
-        "min_ms": float(match.group(1)),
-        "avg_ms": float(match.group(2)),
-        "max_ms": float(match.group(3)),
+        "min_ms": min,
+        "avg_ms": avg,
+        "max_ms": max,
     }
 
 

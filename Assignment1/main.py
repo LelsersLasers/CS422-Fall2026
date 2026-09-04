@@ -1,29 +1,33 @@
 #!/usr/bin/env python3
 
-import argparse
-import shutil
-import subprocess
-import sys
 from pathlib import Path
+
+from ping_test import run_ping_test
+from locate_geo import run_locate_geo
+from traceroute_test import run_traceroute_test
+from plot_results import run_plot_results
 
 
 ROOT = Path(__file__).resolve().parent
-DATA_JSON = Path(ROOT, "data", "listed_iperf3_servers.json")
-
-
-def run(cmd):
-    print("\n$", " ".join(map(str, cmd)))
-    print("=" * 80)
-    subprocess.run(cmd, cwd=ROOT, check=True)
+DATA_JSON = ROOT / "data" / "listed_iperf3_servers.json"
 
 
 def main():
-    python = sys.executable
+    print("\nRunning ping tests...")
+    print("=" * 80)
+    ping_output = run_ping_test(DATA_JSON)
 
-    run([python, "scripts/ping_test.py", str(DATA_JSON)])
-    run([python, "scripts/locate_geo.py", "output/ping.json"])
-    run([python, "scripts/traceroute_test.py", str(DATA_JSON)])
-    run([python, "scripts/plot_results.py"])
+    print("\nRunning geo location...")
+    print("=" * 80)
+    geo_output = run_locate_geo(ping_output)
+
+    print("\nRunning traceroute tests...")
+    print("=" * 80)
+    trace_output = run_traceroute_test(DATA_JSON)
+
+    print("\nGenerating plots...")
+    print("=" * 80)
+    run_plot_results(ping_output, geo_output, trace_output)
 
     print("\nDone.")
 

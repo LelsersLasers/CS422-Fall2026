@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import json
 import math
 import subprocess
@@ -32,18 +31,18 @@ def get_own_location():
     return obj["latitude"], obj["longitude"]
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ping", type=Path, default=Path("output/ping.json"))
-    parser.add_argument("--geo", type=Path, default=Path("output/geo.json"))
-    parser.add_argument("--trace", type=Path, default=Path("output/traceroute.json"))
-    parser.add_argument("-o", "--output-dir", type=Path, default=Path("output"))
-    args = parser.parse_args()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+def run_plot_results(
+    ping_path: Path = Path("output/ping.json"),
+    geo_path: Path = Path("output/geo.json"),
+    trace_path: Path = Path("output/traceroute.json"),
+    output_dir: Path = Path("output"),
+) -> Path:
+    """Generate all plots from ping, geo, and traceroute results."""
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    ping = load(args.ping)
-    geo = {x["target"]: x for x in load(args.geo) if "latitude" in x}
-    trace = load(args.trace)
+    ping = load(ping_path)
+    geo = {x["target"]: x for x in load(geo_path) if "latitude" in x}
+    trace = load(trace_path)
 
     # 1(b): distance vs average RTT
     try:
@@ -71,7 +70,7 @@ def main():
             plt.title("Geographical distance vs. average RTT")
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
-            plt.savefig(args.output_dir / "distance_vs_rtt.pdf")
+            plt.savefig(output_dir / "distance_vs_rtt.pdf")
             plt.close()
 
     # 2(b): stacked latency breakdown. Each hop is plotted as the
@@ -102,7 +101,7 @@ def main():
         plt.xticks(rotation=45, ha="right")
         plt.legend(fontsize=7, ncol=3)
         plt.tight_layout()
-        plt.savefig(args.output_dir / "traceroute_breakdown.pdf")
+        plt.savefig(output_dir / "traceroute_breakdown.pdf")
         plt.close()
 
         # 2(c): hop count vs destination RTT
@@ -118,11 +117,12 @@ def main():
         plt.title("Hop count vs. destination RTT")
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.savefig(args.output_dir / "hop_count_vs_rtt.pdf")
+        plt.savefig(output_dir / "hop_count_vs_rtt.pdf")
         plt.close()
 
-    print(f"Plots written to {args.output_dir}")
+    print(f"Plots written to {output_dir}")
+    return output_dir
 
 
 if __name__ == "__main__":
-    main()
+    run_plot_results()

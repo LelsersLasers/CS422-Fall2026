@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-import argparse
 import json
 import platform
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from utils import get_local_ip
@@ -58,20 +56,20 @@ def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("targets", type=Path)
-    parser.add_argument("-o", "--output", type=Path, default=Path("output/ping.json"))
-    parser.add_argument("-c", "--count", type=int, default=5)
-    parser.add_argument("-t", "--timeout", type=int, default=2)
-    args = parser.parse_args()
+def run_ping_test(
+    targets_path: Path,
+    output_path: Path = Path("output/ping.json"),
+    count: int = 5,
+    timeout: int = 2,
+) -> Path:
+    """Run ping tests against all targets and write results to output_path."""
+    results = [ping(t, count, timeout) for t in read_targets(targets_path)]
 
-    results = [ping(t, args.count, args.timeout) for t in read_targets(args.targets)]
-
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(results, indent=2))
-    print(f"Wrote {args.output}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(results, indent=2))
+    print(f"Wrote {output_path}")
+    return output_path
 
 
 if __name__ == "__main__":
-    main()
+    run_ping_test(Path("data/listed_iperf3_servers.json"))

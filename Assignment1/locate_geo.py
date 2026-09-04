@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import json
 import time
 from pathlib import Path
@@ -8,13 +7,12 @@ from pathlib import Path
 import requests
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("ping_json", type=Path)
-    parser.add_argument("-o", "--output", type=Path, default=Path("output/geo.json"))
-    args = parser.parse_args()
-
-    ping_results = json.loads(args.ping_json.read_text())
+def run_locate_geo(
+    ping_json_path: Path,
+    output_path: Path = Path("output/geo.json"),
+) -> Path:
+    """Geolocate each responsive target from ping results and write results to output_path."""
+    ping_results = json.loads(ping_json_path.read_text())
     results = []
 
     for row in ping_results:
@@ -46,10 +44,11 @@ def main() -> None:
 
         time.sleep(0.2)
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(results, indent=2))
-    print(f"Wrote {args.output}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(results, indent=2))
+    print(f"Wrote {output_path}")
+    return output_path
 
 
 if __name__ == "__main__":
-    main()
+    run_locate_geo(Path("output/ping.json"))

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import json
 import platform
 import random
@@ -57,29 +56,29 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("targets", type=Path)
-    parser.add_argument("-o", "--output", type=Path, default=Path("output/traceroute.json"))
-    parser.add_argument("--max-hops", type=int, default=30)
-    parser.add_argument("--timeout", type=int, default=2)
-    args = parser.parse_args()
-
-    all_targets = read_targets(args.targets)
+def run_traceroute_test(
+    targets_path: Path,
+    output_path: Path = Path("output/traceroute.json"),
+    max_hops: int = 30,
+    timeout: int = 2,
+) -> Path:
+    """Run traceroute tests against a sample of targets and write results to output_path."""
+    all_targets = read_targets(targets_path)
     if len(all_targets) > 5:
         selected_targets = random.sample(all_targets, 5)
     else:
         selected_targets = all_targets
 
     results = [
-        traceroute(t, args.max_hops, args.timeout)
+        traceroute(t, max_hops, timeout)
         for t in selected_targets
     ]
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(results, indent=2))
-    print(f"Wrote {args.output}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(results, indent=2))
+    print(f"Wrote {output_path}")
+    return output_path
 
 
 if __name__ == "__main__":
-    main()
+    run_traceroute_test(Path("data/listed_iperf3_servers.json"))

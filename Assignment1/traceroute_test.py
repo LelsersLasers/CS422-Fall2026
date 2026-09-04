@@ -7,9 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
-
-def read_targets(path: Path) -> list[str]:
-    return [item["IP/HOST"] for item in json.loads(path.read_text())]
+from utils import read_targets
 
 
 def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
@@ -35,16 +33,23 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
 
     hops = []
     for line in proc.stdout.splitlines():
+        # Filter out non-responsive hops (lines like "  2  * * *")
+        if re.match(r"^\s*\d+\s+(\*\s+)+", line):
+            print(f"\t{line.strip()} (filtered non-responsive)")
+            continue
         # Typical Linux output:
         #  1  192.168.1.1  1.123 ms
         match = re.match(r"^\s*(\d+)\s+(\S+)\s+([\d.]+)\s+ms", line)
         if match:
-            print(f"\tHop {match.group(1)}: {match.group(2)} ({match.group(3)} ms)")
             hops.append({
-                "hop": int(match.group(1)),
                 "address": match.group(2),
                 "rtt_ms": float(match.group(3)),
             })
+            print(f"\tHop {len(hops)}: {match.group(2)} ({match.group(3)} ms)")
+
+    # Renumber hops sequentially after filtering
+    for i, hop in enumerate(hops, start=1):
+        hop["hop"] = i
 
     destination_responded = bool(hops and hops[-1]["address"] == target)
 
@@ -61,8 +66,12 @@ def run_traceroute_test(
     output_path: Path = Path("output/traceroute.json"),
     max_hops: int = 30,
     timeout: int = 2,
+    seed: int | None = None,
 ) -> Path:
     """Run traceroute tests against a sample of targets and write results to output_path."""
+    if seed is not None:
+        random.seed(seed)
+
     all_targets = read_targets(targets_path)
     if len(all_targets) > 5:
         selected_targets = random.sample(all_targets, 5)

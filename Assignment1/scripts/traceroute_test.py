@@ -66,8 +66,8 @@ def main() -> None:
     args = parser.parse_args()
 
     all_targets = read_targets(args.targets)
-    if len(all_targets) > 10:
-        selected_targets = random.sample(all_targets, 10)
+    if len(all_targets) > 5:
+        selected_targets = random.sample(all_targets, 5)
     else:
         selected_targets = all_targets
 

@@ -17,9 +17,23 @@ def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
     if system == "windows":
         cmd = ["ping", "-n", str(count), "-w", str(timeout * 1000), target]
     else:
-        cmd = ["ping", "-i", "0.1", "-c", str(count), "-W", str(timeout), target]
+        cmd = ["ping", "-i", "0.03", "-c", str(count), "-W", str(timeout), target]
 
-    proc = subprocess.run(cmd, text=True, capture_output=True, timeout=count * (timeout + 2) + 5)
+    try:
+        proc = subprocess.run(
+            cmd, text=True, capture_output=True,
+            timeout=count * (timeout + 2) + 5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        print(f"\tFailed to ping {target}: {exc}")
+        return {
+            "target": target,
+            "responsive": False,
+            "min_ms": None,
+            "avg_ms": None,
+            "max_ms": None,
+        }
+
     output = proc.stdout + proc.stderr
 
     # Linux/macOS ping summary usually looks like:

@@ -5,11 +5,16 @@ import json
 import platform
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+from utils import get_local_ip
 
 
 def read_targets(path: Path) -> list[str]:
-    return [item["IP/HOST"] for item in json.loads(path.read_text())]
+    targets = [item["IP/HOST"] for item in json.loads(path.read_text())]
+    targets.append(get_local_ip())
+    return targets
 
 
 def ping(target: str, count: int = 5, timeout: int = 2) -> dict:

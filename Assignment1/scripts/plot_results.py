@@ -71,7 +71,7 @@ def main():
             plt.title("Geographical distance vs. average RTT")
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
-            plt.savefig(args.output_dir / "distance_vs_rtt.png")
+            plt.savefig(args.output_dir / "distance_vs_rtt.pdf")
             plt.close()
 
     # 2(b): stacked latency breakdown. Each hop is plotted as the
@@ -102,7 +102,7 @@ def main():
         plt.xticks(rotation=45, ha="right")
         plt.legend(fontsize=7, ncol=3)
         plt.tight_layout()
-        plt.savefig(args.output_dir / "traceroute_breakdown.png")
+        plt.savefig(args.output_dir / "traceroute_breakdown.pdf")
         plt.close()
 
         # 2(c): hop count vs destination RTT
@@ -118,7 +118,7 @@ def main():
         plt.title("Hop count vs. destination RTT")
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.savefig(args.output_dir / "hop_count_vs_rtt.png")
+        plt.savefig(args.output_dir / "hop_count_vs_rtt.pdf")
         plt.close()
 
     print(f"Plots written to {args.output_dir}")

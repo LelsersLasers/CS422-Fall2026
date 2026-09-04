@@ -2,7 +2,7 @@
 
 import json
 import math
-import subprocess
+import requests as req
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -22,13 +22,8 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 
 def get_own_location():
-    data = subprocess.check_output(
-        ["python", "-c",
-         "import requests; print(requests.get('https://ipwho.is/', timeout=10).text)"],
-        text=True,
-    )
-    obj = json.loads(data)
-    return obj["latitude"], obj["longitude"]
+    resp = req.get("https://ipwho.is/", timeout=10).json()
+    return resp["latitude"], resp["longitude"]
 
 
 def run_plot_results(

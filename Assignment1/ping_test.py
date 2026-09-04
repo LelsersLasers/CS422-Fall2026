@@ -6,13 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from utils import get_local_ip
-
-
-def read_targets(path: Path) -> list[str]:
-    targets = [item["IP/HOST"] for item in json.loads(path.read_text())]
-    targets.append(get_local_ip())
-    return targets
+from utils import get_local_ip, read_targets
 
 
 def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
@@ -63,7 +57,9 @@ def run_ping_test(
     timeout: int = 2,
 ) -> Path:
     """Run ping tests against all targets and write results to output_path."""
-    results = [ping(t, count, timeout) for t in read_targets(targets_path)]
+    all_ping_targets = read_targets(targets_path)
+    all_ping_targets.append(get_local_ip())
+    results = [ping(t, count, timeout) for t in all_ping_targets]
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2))

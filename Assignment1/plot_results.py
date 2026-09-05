@@ -105,7 +105,7 @@ def run_plot_results(
         plt.close()
 
         # 2(c): hop count vs destination RTT
-        hop_counts = [len(x["hops"]) for x in successful]
+        hop_counts = [x["hops"][-1]["hop"] for x in successful]
         rtts = [x["hops"][-1]["rtt_ms"] for x in successful]
 
         plt.figure()

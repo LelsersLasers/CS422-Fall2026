@@ -5,6 +5,7 @@ import platform
 import random
 import re
 import subprocess
+import socket
 from pathlib import Path
 
 from utils import read_targets
@@ -13,13 +14,26 @@ from utils import read_targets
 def traceroute(target: str, max_hops: int, timeout: int) -> dict:
     system = platform.system().lower()
 
+    try:
+        target_ip = socket.gethostbyname(target)
+    except socket.gaierror as exc:
+        return {
+            "target": target,
+            "responsive": False,
+            "error": str(exc),
+            "hops": [],
+        }
+
     if system == "windows":
         cmd = ["tracert", "-d", "-h", str(max_hops), target]
     else:
         # -n: no DNS, -q 1: one probe/hop, -w: timeout seconds
         cmd = ["traceroute", "-I", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
 
-    print(f"Tracing route to {target}...")
+    if target_ip != target:
+        print(f"Tracing route to {target}={target_ip}")
+    else:
+        print(f"Tracing route to {target}")
 
     try:
         proc = subprocess.run(
@@ -51,7 +65,7 @@ def traceroute(target: str, max_hops: int, timeout: int) -> dict:
             })
             print(f"\tHop {resp.group(1):>2}: {resp.group(2)} ({resp.group(3)} ms)")
 
-    destination_responded = bool(hops and hops[-1]["address"] == target)
+    destination_responded = bool(hops and hops[-1]["address"] == target_ip)
     if not destination_responded:
         print(f"\tDestination {target} did not respond. Last hop: {hops[-1]['address'] if hops else 'None'}")
 

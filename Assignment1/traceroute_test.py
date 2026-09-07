@@ -17,7 +17,7 @@ def traceroute(target: str, max_hops: int, timeout: int) -> dict:
         cmd = ["tracert", "-d", "-h", str(max_hops), target]
     else:
         # -n: no DNS, -q 1: one probe/hop, -w: timeout seconds
-        cmd = ["traceroute", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
+        cmd = ["traceroute", "-I", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
 
     print(f"Tracing route to {target}...")
 

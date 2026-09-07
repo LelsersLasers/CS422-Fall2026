@@ -73,11 +73,10 @@ def run_plot_results(
     successful = [x for x in trace if x["hops"]]
     if successful:
         labels = [x["target"] for x in successful]
-        max_hops = max(len(x["hops"]) for x in successful)
 
         bottoms = [0.0] * len(successful)
         plt.figure()
-        for i in range(max_hops):
+        for i, hop in enumerate(successful[0]["hops"]):
             values = []
             for result in successful:
                 if i < len(result["hops"]):
@@ -87,7 +86,7 @@ def run_plot_results(
                 else:
                     values.append(0.0)
 
-            plt.bar(labels, values, bottom=bottoms, label=f"Hop {i + 1}")
+            plt.bar(labels, values, bottom=bottoms, label=f"Hop {hop['hop']}")
             bottoms = [b + v for b, v in zip(bottoms, values)]
 
         plt.ylabel("Cumulative RTT (ms)")
@@ -100,7 +99,8 @@ def run_plot_results(
         plt.close()
 
         # 2(c): hop count vs destination RTT
-        hop_counts = [len(x["hops"]) for x in successful]
+        # Hop count = max original hop number (includes filtered non-responsive hops)
+        hop_counts = [max(h["hop"] for h in x["hops"]) for x in successful]
         rtts = [x["hops"][-1]["rtt_ms"] for x in successful]
 
         plt.figure()

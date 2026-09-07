@@ -49,6 +49,8 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
             print(f"\tHop {match.group(1)}: {match.group(2)} ({match.group(3)} ms)")
 
     destination_responded = bool(hops and hops[-1]["address"] == target)
+    if not destination_responded:
+        print(f"\tDestination {target} did not respond. Last hop: {hops[-1]['address'] if hops else 'None'}")
 
     return {
         "target": target,

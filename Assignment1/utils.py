@@ -1,6 +1,12 @@
 import json
 import socket
+import platform
 from pathlib import Path
+
+
+def expect_non_windows():
+    if platform.system().lower() == "windows":
+        raise RuntimeError("Windows is not supported; run on Linux/Purdue data server")
 
 
 def get_local_ip() -> str:

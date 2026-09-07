@@ -8,11 +8,11 @@ import subprocess
 import socket
 from pathlib import Path
 
-from utils import read_targets
+from utils import read_targets, expect_non_windows
 
 
 def traceroute(target: str, max_hops: int, timeout: int) -> dict:
-    system = platform.system().lower()
+    expect_non_windows()
 
     try:
         target_ip = socket.gethostbyname(target)
@@ -24,11 +24,8 @@ def traceroute(target: str, max_hops: int, timeout: int) -> dict:
             "hops": [],
         }
 
-    if system == "windows":
-        cmd = ["tracert", "-d", "-h", str(max_hops), target]
-    else:
-        # -n: no DNS, -q 1: one probe/hop, -w: timeout seconds
-        cmd = ["traceroute", "-I", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
+    # I: ICMP protocol, -n: no DNS, -q 1: one probe/hop, -w: timeout seconds
+    cmd = ["traceroute", "-I", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
 
     if target_ip != target:
         print(f"Tracing route to {target}={target_ip}")

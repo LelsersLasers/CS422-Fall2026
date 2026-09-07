@@ -78,22 +78,60 @@ def run_plot_results(
     successful = [x for x in trace if x["hops"]]
     if successful:
         labels = [x["target"] for x in successful]
-        max_hops = max(len(x["hops"]) for x in successful)
+
+        # Collect the actual hop numbers that appeared in any traceroute.
+        all_hop_numbers = sorted({
+            hop["hop"]
+            for result in successful
+            for hop in result["hops"]
+        })
+
+        # Convert each traceroute into:
+        # {hop_number: rtt_ms}
+        hop_maps = [
+            {
+                hop["hop"]: hop["rtt_ms"]
+                for hop in result["hops"]
+            }
+            for result in successful
+        ]
 
         bottoms = [0.0] * len(successful)
+        previous_rtts = [0.0] * len(successful)
+
         plt.figure()
-        for i in range(max_hops):
+
+        for hop_number in all_hop_numbers:
             values = []
-            for result in successful:
-                if i < len(result["hops"]):
-                    current = result["hops"][i]["rtt_ms"]
-                    previous = result["hops"][i - 1]["rtt_ms"] if i else 0.0
-                    values.append(max(0.0, current - previous))
+
+            for idx, hop_map in enumerate(hop_maps):
+                if hop_number in hop_map:
+                    current_rtt = hop_map[hop_number]
+
+                    # Approximate incremental RTT from the previous responding hop.
+                    increment = current_rtt - previous_rtts[idx]
+
+                    # Keep the stacked bar non-negative?
+                    # traceroute RTTs are independent measurements,
+                    # so decreases can occur naturally.
+                    increment = max(0.0, increment)
+
+                    values.append(increment)
+                    previous_rtts[idx] = current_rtt
                 else:
                     values.append(0.0)
 
-            plt.bar(labels, values, bottom=bottoms, label=f"Hop {i + 1}")
-            bottoms = [b + v for b, v in zip(bottoms, values)]
+            plt.bar(
+                labels,
+                values,
+                bottom=bottoms,
+                label=f"Hop {hop_number}"
+            )
+
+            bottoms = [
+                bottom + value
+                for bottom, value in zip(bottoms, values)
+            ]
 
         plt.ylabel("Cumulative RTT (ms)")
         plt.xlabel("Destination IP")

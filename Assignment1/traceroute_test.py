@@ -42,14 +42,11 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
         match = re.match(r"^\s*(\d+)\s+(\S+)\s+([\d.]+)\s+ms", line)
         if match:
             hops.append({
+                "hop": int(match.group(1)),
                 "address": match.group(2),
                 "rtt_ms": float(match.group(3)),
             })
-            print(f"\tHop {len(hops)}: {match.group(2)} ({match.group(3)} ms)")
-
-    # Renumber hops sequentially after filtering
-    for i, hop in enumerate(hops, start=1):
-        hop["hop"] = i
+            print(f"\tHop {match.group(1)}: {match.group(2)} ({match.group(3)} ms)")
 
     destination_responded = bool(hops and hops[-1]["address"] == target)
 

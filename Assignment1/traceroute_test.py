@@ -10,7 +10,7 @@ from pathlib import Path
 from utils import read_targets
 
 
-def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
+def traceroute(target: str, max_hops: int = 50, timeout: int = 4) -> dict:
     system = platform.system().lower()
 
     if system == "windows":

@@ -111,7 +111,7 @@ def run_plot_results(
                     # Approximate incremental RTT from the previous responding hop.
                     increment = current_rtt - previous_rtts[idx]
 
-                    # Keep the stacked bar non-negative?
+                    # Treat negative per-hop differences as zero
                     # traceroute RTTs are independent measurements,
                     # so decreases can occur naturally.
                     increment = max(0.0, increment)
@@ -133,7 +133,7 @@ def run_plot_results(
                 for bottom, value in zip(bottoms, values)
             ]
 
-        plt.ylabel("Cumulative RTT (ms)")
+        plt.ylabel("Per-hop RTT contribution (ms)")
         plt.xlabel("Destination IP")
         plt.title("Traceroute latency breakdown")
         plt.xticks(rotation=45, ha="right")

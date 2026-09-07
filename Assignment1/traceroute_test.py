@@ -39,9 +39,6 @@ def traceroute(target: str, max_hops: int = 50, timeout: int = 4) -> dict:
         if non_resp and hop_num:
             print(f"\tHop {hop_num.group(1):>2}: not responsive")
             continue
-        elif not hop_num:
-            print(f"\tSkipping line: {line}")
-            continue
 
         # Typical Linux output:
         #  1  192.168.1.1  1.123 ms
@@ -89,10 +86,13 @@ def run_traceroute_test(
     while len(results) < count and pool:
         target = pool.pop(random.randrange(len(pool)))
         result = traceroute(target, max_hops, timeout)
-        if result["hops"]:
+        if result["hops"] and result["responsive"]:
             results.append(result)
         else:
             print(f"\tSkipping non-responsive target {target}")
+
+    if len(results) < count:
+        print(f"Warning: only {len(results)} successful traces collected (requested {count})")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2))

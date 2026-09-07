@@ -1,4 +1,7 @@
+import json
 import socket
+from pathlib import Path
+
 
 def get_local_ip() -> str:
     """
@@ -17,3 +20,8 @@ def get_local_ip() -> str:
     finally:
         s.close()
     return ip
+
+
+def read_targets(path: Path) -> list[str]:
+    """Read the iperf3 server list JSON and return all IP/HOST values."""
+    return [item["IP/HOST"] for item in json.loads(path.read_text())]

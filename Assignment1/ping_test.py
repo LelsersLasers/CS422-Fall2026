@@ -6,13 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from utils import get_local_ip
-
-
-def read_targets(path: Path) -> list[str]:
-    targets = [item["IP/HOST"] for item in json.loads(path.read_text())]
-    targets.append(get_local_ip())
-    return targets
+from utils import get_local_ip, read_targets
 
 
 def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
@@ -23,9 +17,23 @@ def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
     if system == "windows":
         cmd = ["ping", "-n", str(count), "-w", str(timeout * 1000), target]
     else:
-        cmd = ["ping", "-i", "0.1", "-c", str(count), "-W", str(timeout), target]
+        cmd = ["ping", "-i", "0.03", "-c", str(count), "-W", str(timeout), target]
 
-    proc = subprocess.run(cmd, text=True, capture_output=True, timeout=count * (timeout + 2) + 5)
+    try:
+        proc = subprocess.run(
+            cmd, text=True, capture_output=True,
+            timeout=count * (timeout + 2) + 5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        print(f"\tFailed to ping {target}: {exc}")
+        return {
+            "target": target,
+            "responsive": False,
+            "min_ms": None,
+            "avg_ms": None,
+            "max_ms": None,
+        }
+
     output = proc.stdout + proc.stderr
 
     # Linux/macOS ping summary usually looks like:
@@ -46,13 +54,16 @@ def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
             "max_ms": None,
         }
 
-    print(f"\tResults for {target}: {match.group(1)}/{match.group(2)}/{match.group(3)}")
+    min = float(match.group(1))
+    avg = float(match.group(2))
+    max = float(match.group(3))
+    print(f"\t{target}: min={min:.1f} ms, avg={avg:.1f} ms, max={max:.1f} ms")
     return {
         "target": target,
         "responsive": True,
-        "min_ms": float(match.group(1)),
-        "avg_ms": float(match.group(2)),
-        "max_ms": float(match.group(3)),
+        "min_ms": min,
+        "avg_ms": avg,
+        "max_ms": max,
     }
 
 
@@ -63,7 +74,9 @@ def run_ping_test(
     timeout: int = 2,
 ) -> Path:
     """Run ping tests against all targets and write results to output_path."""
-    results = [ping(t, count, timeout) for t in read_targets(targets_path)]
+    all_ping_targets = read_targets(targets_path)
+    all_ping_targets.append(get_local_ip())
+    results = [ping(t, count, timeout) for t in all_ping_targets]
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2))

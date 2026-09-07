@@ -34,19 +34,25 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
     hops = []
     for line in proc.stdout.splitlines():
         # Filter out non-responsive hops ("  1  *" or "  2  * * *")
-        if re.match(r"^\s*\d+\s+(\*\s*)+", line):
-            print(f"\t{line.strip()} (filtered non-responsive)")
+        non_resp = re.match(r"^\s*\d+\s+(\*\s*)+", line)
+        hop_num  = re.match(r"^\s*(\d+)", line)
+        if non_resp and hop_num:
+            print(f"\tHop {hop_num.group(1):>2}: not responsive")
             continue
+        elif not hop_num:
+            print(f"\tSkipping line: {line}")
+            continue
+
         # Typical Linux output:
         #  1  192.168.1.1  1.123 ms
-        match = re.match(r"^\s*(\d+)\s+(\S+)\s+([\d.]+)\s+ms", line)
-        if match:
+        resp = re.match(r"^\s*(\d+)\s+(\S+)\s+([\d.]+)\s+ms", line)
+        if resp:
             hops.append({
-                "hop": int(match.group(1)),
-                "address": match.group(2),
-                "rtt_ms": float(match.group(3)),
+                "hop": int(resp.group(1)),
+                "address": resp.group(2),
+                "rtt_ms": float(resp.group(3)),
             })
-            print(f"\tHop {match.group(1):>2}: {match.group(2)} ({match.group(3)} ms)")
+            print(f"\tHop {resp.group(1):>2}: {resp.group(2)} ({resp.group(3)} ms)")
 
     destination_responded = bool(hops and hops[-1]["address"] == target)
     if not destination_responded:

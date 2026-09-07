@@ -1,4 +1,13 @@
+import json
 import socket
+import platform
+from pathlib import Path
+
+
+def expect_non_windows():
+    if platform.system().lower() == "windows":
+        raise RuntimeError("Windows is not supported; run on Linux/Purdue data server")
+
 
 def get_local_ip() -> str:
     """
@@ -17,3 +26,8 @@ def get_local_ip() -> str:
     finally:
         s.close()
     return ip
+
+
+def read_targets(path: Path) -> list[str]:
+    """Read the iperf3 server list JSON and return all IP/HOST values."""
+    return [item["IP/HOST"] for item in json.loads(path.read_text())]

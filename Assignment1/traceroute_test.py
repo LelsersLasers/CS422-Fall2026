@@ -5,23 +5,32 @@ import platform
 import random
 import re
 import subprocess
+import socket
 from pathlib import Path
 
-
-def read_targets(path: Path) -> list[str]:
-    return [item["IP/HOST"] for item in json.loads(path.read_text())]
+from utils import read_targets, expect_non_windows
 
 
-def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
-    system = platform.system().lower()
+def traceroute(target: str, max_hops: int, timeout: int) -> dict:
+    expect_non_windows()
 
-    if system == "windows":
-        cmd = ["tracert", "-d", "-h", str(max_hops), target]
+    try:
+        target_ip = socket.gethostbyname(target)
+    except socket.gaierror as exc:
+        return {
+            "target": target,
+            "responsive": False,
+            "error": str(exc),
+            "hops": [],
+        }
+
+    # I: ICMP protocol, -n: no DNS, -q 1: one probe/hop, -w: timeout seconds
+    cmd = ["traceroute", "-I", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
+
+    if target_ip != target:
+        print(f"Tracing route to {target}={target_ip}")
     else:
-        # -n: no DNS, -q 1: one probe/hop, -w: timeout seconds
-        cmd = ["traceroute", "-n", "-q", "1", "-w", str(timeout), "-m", str(max_hops), target]
-
-    print(f"Tracing route to {target}...")
+        print(f"Tracing route to {target}")
 
     try:
         proc = subprocess.run(
@@ -35,18 +44,27 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
 
     hops = []
     for line in proc.stdout.splitlines():
+        # Filter out non-responsive hops ("  1  *" or "  2  * * *")
+        non_resp = re.match(r"^\s*\d+\s+(\*\s*)+", line)
+        hop_num  = re.match(r"^\s*(\d+)", line)
+        if non_resp and hop_num:
+            print(f"\tHop {hop_num.group(1):>2}: not responsive")
+            continue
+
         # Typical Linux output:
         #  1  192.168.1.1  1.123 ms
-        match = re.match(r"^\s*(\d+)\s+(\S+)\s+([\d.]+)\s+ms", line)
-        if match:
-            print(f"\tHop {match.group(1)}: {match.group(2)} ({match.group(3)} ms)")
+        resp = re.match(r"^\s*(\d+)\s+(\S+)\s+([\d.]+)\s+ms", line)
+        if resp:
             hops.append({
-                "hop": int(match.group(1)),
-                "address": match.group(2),
-                "rtt_ms": float(match.group(3)),
+                "hop": int(resp.group(1)),
+                "address": resp.group(2),
+                "rtt_ms": float(resp.group(3)),
             })
+            print(f"\tHop {resp.group(1):>2}: {resp.group(2)} ({resp.group(3)} ms)")
 
-    destination_responded = bool(hops and hops[-1]["address"] == target)
+    destination_responded = bool(hops and hops[-1]["address"] == target_ip)
+    if not destination_responded:
+        print(f"\tDestination {target} did not respond. Last hop: {hops[-1]['address'] if hops else 'None'}")
 
     return {
         "target": target,
@@ -59,20 +77,33 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
 def run_traceroute_test(
     targets_path: Path,
     output_path: Path = Path("output/traceroute.json"),
-    max_hops: int = 30,
-    timeout: int = 2,
+    count: int = 5,
+    max_hops: int = 50,
+    timeout: int = 4,
+    seed: int | None = None,
 ) -> Path:
-    """Run traceroute tests against a sample of targets and write results to output_path."""
-    all_targets = read_targets(targets_path)
-    if len(all_targets) > 5:
-        selected_targets = random.sample(all_targets, 5)
-    else:
-        selected_targets = all_targets
+    """Run traceroute tests until exactly count successful traces are collected.
 
-    results = [
-        traceroute(t, max_hops, timeout)
-        for t in selected_targets
-    ]
+    Non-responsive targets are replaced by random picks from the remaining pool
+    so the final result always contains count entries with hop data.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    all_targets = read_targets(targets_path)
+    pool = list(all_targets)
+    results: list[dict] = []
+
+    while len(results) < count and pool:
+        target = pool.pop(random.randrange(len(pool)))
+        result = traceroute(target, max_hops, timeout)
+        if result["hops"] and result["responsive"]:
+            results.append(result)
+        else:
+            print(f"\tSkipping non-responsive target {target}")
+
+    if len(results) < count:
+        print(f"Warning: only {len(results)} successful traces collected (requested {count})")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2))

@@ -33,8 +33,8 @@ def traceroute(target: str, max_hops: int = 30, timeout: int = 2) -> dict:
 
     hops = []
     for line in proc.stdout.splitlines():
-        # Filter out non-responsive hops (lines like "  2  * * *")
-        if re.match(r"^\s*\d+\s+(\*\s+)+", line):
+        # Filter out non-responsive hops ("  1  *" or "  2  * * *")
+        if re.match(r"^\s*\d+\s+(\*\s*)+", line):
             print(f"\t{line.strip()} (filtered non-responsive)")
             continue
         # Typical Linux output:

@@ -10,7 +10,7 @@ from pathlib import Path
 from utils import read_targets
 
 
-def traceroute(target: str, max_hops: int = 50, timeout: int = 4) -> dict:
+def traceroute(target: str, max_hops: int, timeout: int) -> dict:
     system = platform.system().lower()
 
     if system == "windows":
@@ -67,8 +67,8 @@ def run_traceroute_test(
     targets_path: Path,
     output_path: Path = Path("output/traceroute.json"),
     count: int = 5,
-    max_hops: int = 30,
-    timeout: int = 2,
+    max_hops: int = 50,
+    timeout: int = 4,
     seed: int | None = None,
 ) -> Path:
     """Run traceroute tests until exactly count successful traces are collected.

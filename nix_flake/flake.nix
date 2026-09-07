@@ -35,12 +35,18 @@
           ps.latexmk
           ps.scheme-medium
         ]);
+
+        otherTools = with pkgs; [
+          pkgs.mypy
+        ];
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
             pythonEnv
             netTools
+            latexTools
+            otherTools
           ];
 
           shellHook = ''

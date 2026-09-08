@@ -12,12 +12,7 @@ from utils import get_local_ip, read_targets
 def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
     print(f"Pinging {target}...")
 
-    system = platform.system().lower()
-
-    if system == "windows":
-        cmd = ["ping", "-n", str(count), "-w", str(timeout * 1000), target]
-    else:
-        cmd = ["ping", "-i", "0.03", "-c", str(count), "-W", str(timeout), target]
+    cmd = ["ping", "-i", "0.01", "-c", str(count), "-W", str(timeout), target]
 
     try:
         proc = subprocess.run(

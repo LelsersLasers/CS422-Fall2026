@@ -130,10 +130,15 @@ def run_plot_results(
             ]
 
         plt.ylabel("Per-hop RTT contribution (ms)")
-        plt.xlabel("Destination IP")
+        plt.xlabel("Destination IP", labelpad=10)
         plt.title("Traceroute latency breakdown")
         plt.xticks(rotation=45, ha="right")
-        plt.legend(fontsize=7, ncol=3, bbox_to_anchor=(1.02, 1), loc="upper left",)
+        plt.legend(
+            fontsize=7,
+            ncol=2,
+            loc="upper left",
+            bbox_to_anchor=(1.02, 1),
+        ) 
         plt.tight_layout()
         plt.savefig(output_dir / "traceroute_breakdown.pdf", bbox_inches="tight",)
         plt.close()

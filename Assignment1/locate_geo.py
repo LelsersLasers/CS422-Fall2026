@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import socket
 import time
 from pathlib import Path
 
@@ -23,7 +24,14 @@ def run_locate_geo(
         print(f"Geolocating {ip}...")
 
         try:
-            response = requests.get(f"https://ipwho.is/{ip}", timeout=10)
+            resolved_ip = socket.gethostbyname(ip)
+        except socket.gaierror as exc:
+            print(f"\tFailed to resolve {ip}: {exc}")
+            results.append({"target": ip, "error": str(exc)})
+            continue
+
+        try:
+            response = requests.get(f"https://ipwho.is/{resolved_ip}", timeout=10)
             response.raise_for_status()
             data = response.json()
 

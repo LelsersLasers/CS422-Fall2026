@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import json
-import platform
 import re
 import subprocess
 from pathlib import Path
@@ -9,15 +8,10 @@ from pathlib import Path
 from utils import get_local_ip, read_targets
 
 
-def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
+def ping(target: str, count: int = 10, timeout: int = 2) -> dict:
     print(f"Pinging {target}...")
 
-    system = platform.system().lower()
-
-    if system == "windows":
-        cmd = ["ping", "-n", str(count), "-w", str(timeout * 1000), target]
-    else:
-        cmd = ["ping", "-i", "0.03", "-c", str(count), "-W", str(timeout), target]
+    cmd = ["ping", "-i", "0.01", "-c", str(count), "-W", str(timeout), target]
 
     try:
         proc = subprocess.run(
@@ -70,7 +64,7 @@ def ping(target: str, count: int = 5, timeout: int = 2) -> dict:
 def run_ping_test(
     targets_path: Path,
     output_path: Path = Path("output/ping.json"),
-    count: int = 5,
+    count: int = 10,
     timeout: int = 2,
 ) -> Path:
     """Run ping tests against all targets and write results to output_path."""

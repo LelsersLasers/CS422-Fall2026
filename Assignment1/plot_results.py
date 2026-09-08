@@ -133,9 +133,9 @@ def run_plot_results(
         plt.xlabel("Destination IP")
         plt.title("Traceroute latency breakdown")
         plt.xticks(rotation=45, ha="right")
-        plt.legend(fontsize=7, ncol=3)
+        plt.legend(fontsize=7, ncol=3, bbox_to_anchor=(1.02, 1), loc="upper left",)
         plt.tight_layout()
-        plt.savefig(output_dir / "traceroute_breakdown.pdf")
+        plt.savefig(output_dir / "traceroute_breakdown.pdf", bbox_inches="tight",)
         plt.close()
 
         # 2(c): hop count vs destination RTT

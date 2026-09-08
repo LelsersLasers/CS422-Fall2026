@@ -57,17 +57,31 @@ def run_plot_results(
                 points.append((distance, row["avg_ms"], row["target"]))
 
         if points:
-            plt.figure()
-            plt.scatter([p[0] for p in points], [p[1] for p in points])
-            for x, y, label in points:
-                plt.annotate(label, (x, y), fontsize=7)
-            plt.xlabel("Geographical distance (km)")
-            plt.ylabel("Average RTT (ms)")
-            plt.title("Geographical distance vs. average RTT")
-            plt.grid(True, alpha=0.3)
-            plt.tight_layout()
-            plt.savefig(output_dir / "distance_vs_rtt.pdf")
-            plt.close()
+            points.sort(key=lambda p: p[0])
+
+            fig, ax = plt.subplots(figsize=(9, 6))
+            ax.scatter([p[0] for p in points], [p[1] for p in points])
+            for idx, (x, y, _label) in enumerate(points, start=1):
+                ax.annotate(
+                    str(idx), (x, y), fontsize=6,
+                    xytext=(4, 4), textcoords="offset points",
+                )
+            ax.set_xlabel("Geographical distance (km)")
+            ax.set_ylabel("Average RTT (ms)")
+            ax.set_title("Geographical distance vs. average RTT")
+            ax.grid(True, alpha=0.3)
+
+            legend_text = "\n".join(
+                f"{idx}: {label}" for idx, (_, _, label) in enumerate(points, start=1)
+            )
+            fig.text(
+                1.02, 0.98, legend_text, transform=ax.transAxes,
+                fontsize=6, va="top", ha="left", family="monospace",
+            )
+
+            fig.tight_layout()
+            fig.savefig(output_dir / "distance_vs_rtt.pdf", bbox_inches="tight")
+            plt.close(fig)
 
     # 2(b): stacked latency breakdown. Each hop is plotted as the
     # incremental RTT from the previous responding hop.

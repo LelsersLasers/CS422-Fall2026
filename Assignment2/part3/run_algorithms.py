@@ -38,6 +38,8 @@ ALGORITHMS = ['cubic', 'reno', 'bbr']
 def _algo_pass(
     candidates: list[dict],
     algorithm: str,
+    destinations: int,
+    max_attempts: int,
     duration: float,
     interval: float,
     timeout: float,
@@ -47,13 +49,19 @@ def _algo_pass(
 ) -> tuple[list[dict], list[dict], int]:
     """Run one algorithm over the given candidate list.
 
+    Args:
+        candidates: Servers to try (selection pass) or selected destinations
+            (sweep passes).
+        destinations: Stop after this many successes.
+        max_attempts: Cap on total attempts for this pass.
+
     Returns (successes, failures, attempts).
     """
     algo_dir = output / algorithm
     successes, failures, _summaries, attempts = attempt_tests(
         candidates=candidates,
-        destinations=len(candidates),
-        max_attempts=len(candidates),
+        destinations=min(destinations, len(candidates)),
+        max_attempts=max_attempts,
         duration=duration,
         interval=interval,
         timeout=timeout,
@@ -121,8 +129,8 @@ def run_part3(
     # ------------------------------------------------------------------
     print(f"Part 3: selecting {destinations} destinations (cubic pass)...")
     successes, failures, attempts = _algo_pass(
-        candidates, 'cubic', duration, interval, timeout,
-        block_size, output_dir,
+        candidates, 'cubic', destinations, max_attempts, duration,
+        interval, timeout, block_size, output_dir,
     )
     successes_by_algo['cubic'] = successes
     failures_by_algo['cubic'] = failures
@@ -143,8 +151,8 @@ def run_part3(
             print(f"Part 3: re-testing {len(selected)} destinations "
                   f"with '{algo}'...")
             successes, failures, attempts = _algo_pass(
-                selected, algo, duration, interval, timeout,
-                block_size, output_dir,
+                selected, algo, len(selected), max_attempts, duration,
+                interval, timeout, block_size, output_dir,
             )
             successes_by_algo[algo] = successes
             failures_by_algo[algo] = failures

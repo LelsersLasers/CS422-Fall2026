@@ -23,10 +23,10 @@ Error states:
 """
 
 import json
+import os
 import select
 import struct
 import socket
-import uuid
 from typing import Optional
 
 # --- iPerf3 protocol state constants (single bytes on control socket) ---
@@ -62,13 +62,22 @@ class ProtocolError(Exception):
 def generate_cookie() -> bytes:
     """Generate a 37-byte random cookie required by the iPerf3 protocol.
 
-    The cookie format is: 32 hex chars (UUID) + '-' + 4 hex chars = 37 bytes.
-    The server echoes this cookie back to verify the client-server association.
+    The cookie must match the format used by real iperf3 (see
+    ``make_cookie()`` in iperf_util.c): 36 random characters drawn from the
+    alphabet ``abcdefghijklmnopqrstuvwxyz234567`` followed by a single
+    NUL byte, for a total of 37 bytes on the wire.
+
+    Server versions that predate the 3.14 cookie relaxation validate the
+    cookie character-for-character against this alphabet (and treat the
+    cookie as a NUL-terminated C string), so deviating from it causes the
+    server to reject the session and close the control connection after the
+    data-socket cookie is received.
 
     Returns:
-        37 bytes of ASCII hex characters.
+        37 bytes: 36 alphabet characters + 1 NUL byte (0x00).
     """
-    cookie = (uuid.uuid4().hex + '-' + uuid.uuid4().hex[:4]).encode('ascii')
+    alphabet = b'abcdefghijklmnopqrstuvwxyz234567'
+    cookie = bytes(alphabet[b % 32] for b in os.urandom(36)) + b'\x00'
     assert len(cookie) == 37, f"Cookie must be 37 bytes, got {len(cookie)}"
     return cookie
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """TCP socket statistics extraction and goodput computation.
 
 This module provides utilities for reading TCP_INFO from the Linux kernel

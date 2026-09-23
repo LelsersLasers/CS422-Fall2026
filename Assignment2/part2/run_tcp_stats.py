@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Part 2: TCP statistics tracing during transfer (assignment section 2).
 
 Part 2 requires the OS default congestion control algorithm (CUBIC on

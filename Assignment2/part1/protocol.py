@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """iPerf3 wire protocol implementation.
 
 This module implements the binary protocol used to communicate with iperf3 servers.

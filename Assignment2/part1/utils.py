@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Shared utilities for iPerf3 throughput testing.
 
 Handles server list parsing, platform validation, and data file output.

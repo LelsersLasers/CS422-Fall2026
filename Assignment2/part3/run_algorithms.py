@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Part 3: Compare CUBIC, Reno, and BBR (assignment section 3).
 
 Strategy (per the assignment, all three algorithms must use the SAME

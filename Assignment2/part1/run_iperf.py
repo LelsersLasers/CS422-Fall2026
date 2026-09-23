@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Part 1 entry point: iPerf3 destination selection, test loop, and output.
 
 This module performs the Part 1 experiment (assignment section 1):

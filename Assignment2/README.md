@@ -1,6 +1,61 @@
-# CS 422 Assignment 2 — iPerf3, TCP Stats, Congestion Control
+# CS 422 Assignment 2 
 
-Native Python socket implementation of an iperf3 TCP sender. It does **not** invoke the iperf3 binary. Requires Linux (including WSL2), Python 3.10+, matplotlib, and a real public iperf3 server list at `data/listed_iperf3_servers.json`.
+## Requirements
+
+Install Python dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+## Run:
+
+### With default parameters
+
+```bash
+python main.py
+```
+### With custom parameters
+
+```text
+python main.py -h
+
+usage: main.py [-h] [-n DESTINATIONS] [-d DURATION] [-i INTERVAL]
+               [--timeout TIMEOUT] [--max-attempts MAX_ATTEMPTS]
+               [--block-size BLOCK_SIZE] [--algorithm ALGORITHM]
+               [--seed SEED] [--servers SERVERS] [--output OUTPUT]
+
+Run the Assignment 2 iPerf3 experiment (Parts 1-3) and produce plots.
+
+options:
+  -h, --help            show this help message and exit
+  -n, --destinations DESTINATIONS
+                        Number of successful destinations to reach (default:
+                        10)
+  -d, --duration DURATION
+                        Per-test duration in seconds (default: 60)
+  -i, --interval INTERVAL
+                        TCP stats sampling interval in seconds (default:
+                        1.0)
+  --timeout TIMEOUT     Connection/read timeout in seconds (default: 15)
+  --max-attempts MAX_ATTEMPTS
+                        Maximum total test attempts per part (default: 30)
+  --block-size BLOCK_SIZE
+                        Data send block size in bytes, 1..1048576 (default:
+                        131072)
+  --algorithm ALGORITHM
+                        Force a TCP congestion algorithm for Part 1
+                        (default: OS default, e.g. CUBIC)
+  --seed SEED           Random seed for reproducible server selection
+  --servers SERVERS     Path to the JSON server list (default:
+                        data/listed_iperf3_servers.json)
+  --output OUTPUT       Output directory for data and plots (default:
+                        output/)
+```
+
+## Results
+
+Resulting plots are saved to `output/`
 
 ## Layout
 
@@ -22,50 +77,11 @@ data/
 output/            ALL intermediate data (CSV/JSON) and final graph PDFs
 ```
 
-## Run
-
-```bash
-python3 -m pip install -r requirements.txt
-python3 main.py -n 10 -d 60 -i 1.0
-```
-
-CLI options: `-n` destinations, `-d` per-test duration (s), `-i` sampling interval (s), `--timeout`, `--max-attempts`, `--block-size` (1..1048576), `--algorithm` (force an algorithm for Part 1; default OS default, e.g. CUBIC), `--seed`, `--servers`, `--output` (default `output/`).
-
-For an initial smoke test use `-n 1 -d 3 -i 0.2 --max-attempts 5`. For reproducible selection use `--seed 42`. Ports expressed as `9205-9240` are alternative ports of one destination; each is tried until success or the global attempt limit. Hosts are randomly shuffled. The program sends one TCP stream in normal (not reverse/UDP) mode; the OPTIONS column is informational only.
-
-### Parts
-
-- **Part 1** — connects to iperf3 servers from the candidate list until `-n` destinations succeed, measuring per-interval acknowledged goodput with the OS default algorithm.
-- **Part 2** — selects the representative destination (highest mean goodput from Part 1's `summary.csv`; the OS default algorithm is exactly what Part 1 measured) and emits its full TCP stats trace for visualization.
-- **Part 3** — a CUBIC selection pass picks the destinations, then the SAME `(host, port)` pairs are re-tested with Reno and BBR. The algorithm actually used is queried back from the data socket and recorded in every sample row, so a kernel that lacks the requested algorithm is visible in the output.
-
-## Outputs (all under `output/`)
-
-Part 1: `{run_id}_samples.csv` (per-interval TCP stats + goodput), `{run_id}_server_results.json` (final iperf3 server result), `summary.csv` (per-run min/median/mean/p95 goodput), `failures.csv`, `manifest.json`, `goodput.pdf` (per-destination time series).
-
-Part 2: `representative_samples.csv` + `representative.json` (selection metadata), `tcp_stats.pdf` (time series + scatter pages).
-
-Part 3 (under `output/part3/`): `{cubic,reno,bbr}/{run_id}_samples.csv` + per-run server JSONs, `comparison_summary.csv` (one row per destination × algorithm), `manifest.json`, `comparison.pdf` (per-algorithm pages with consistent axis scales).
-
-The goodput numerator is **delta of Linux tcpi_bytes_acked** on the **data** socket, not application bytes passed to `send()`. The initial baseline is taken after TEST_RUNNING, so TCP handshake/cookie acknowledgments are excluded from the measured intervals. The final partial interval is retained. Samples are taken in the sender's event loop and therefore may be delayed under scheduling load; actual elapsed time is used in the denominator. TCP_INFO uses Linux native-endian layout: `tcpi_bytes_acked` u64 offset 120; `tcpi_snd_mss` u32 offset 16, `tcpi_lost` offset 32, `tcpi_rtt` offset 68, `tcpi_snd_cwnd` offset 80, `tcpi_total_retrans` offset 100. These offsets must be verified against the host's `/usr/include/linux/tcp.h` and kernel.
-
-Plots alone (without re-running the experiment):
-
-```bash
-python3 plot_results.py --output output
-```
-
 ## Docker
+
+I got no idea about this but we can figure this out once the implementation kind of works:
 
 ```bash
 docker build -t cs422-assignment2 .
 docker run --rm --network host -v "$PWD/data:/app/data:ro" -v "$PWD/output:/app/output" cs422-assignment2 -n 10 -d 60 -i 0.2
 ```
-
-Docker shares the host kernel. The Dockerfile intentionally does not install or invoke iperf3. Test only against servers that permit public testing; do not run simultaneous high-volume experiments against shared public servers.
-
-## Protocol
-
-Control and data sockets each send the same 37-byte cookie (32 hex + `-` + 4 hex). The client receives PARAM_EXCHANGE (9), sends length-prefixed JSON parameters, receives CREATE_STREAMS (10), creates the data socket, receives TEST_START (1) and TEST_RUNNING (2), sends data, sends TEST_END (4), exchanges length-prefixed JSON results (EXCHANGE_RESULTS 13), receives DISPLAY_RESULTS (14), and sends IPERF_DONE (16). Server refusal, timeout, early EOF, and unexpected states are logged and bounded retries are attempted.
-
-**Validation note:** This project has syntax/static tests, but an end-to-end live public-server test has not been run in the generation environment. Verify the handshake and result JSON against a reachable standard iperf3 server before submission. Public servers may use different iperf3 versions.

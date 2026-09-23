@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Execute a single iPerf3 throughput test against a server.
 
 This module contains the main test execution flow:

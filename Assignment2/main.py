@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
-"""Assignment 2 orchestrator: iPerf3 goodput, TCP stats, congestion control.
+"""iPerf3 goodput, TCP stats, congestion control
 
 Thin entry point that drives the three assignment parts in sequence and
 then renders all plots. All intermediate data (CSV/JSON) AND the final
-graph PDFs are written to the single `output/` subfolder:
+graph PDFs are written to the `output/` subfolder:
 
-    output/                      Part 1 + Part 2 data and PDFs
+    output/
         {run_id}_samples.csv
         {run_id}_server_results.json
         summary.csv
@@ -15,7 +14,7 @@ graph PDFs are written to the single `output/` subfolder:
         representative_samples.csv
         representative.json
         tcp_stats.pdf            (Part 2)
-        part3/                   Part 3 data and PDFs
+        part3/                   (Part 3 data and PDFs)
             {cubic,reno,bbr}/{run_id}_samples.csv
             comparison_summary.csv
             manifest.json

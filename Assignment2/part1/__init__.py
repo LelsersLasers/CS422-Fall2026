@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Part 1: iPerf3 throughput client (socket program from scratch).
 
 Modules:

@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-"""Unified plotter for Assignment 2 (all three parts).
-
+"""
 Generates the PDF visualizations from the CSV/JSON output written by the
 part modules. All inputs and outputs live under the single ``output/``
 directory:

@@ -22,7 +22,7 @@ import time
 import uuid
 from typing import Optional
 
-from protocol import (
+from .protocol import (
     ProtocolError,
     generate_cookie,
     send_json,
@@ -39,7 +39,7 @@ from protocol import (
     DISPLAY_RESULTS,
     IPERF_DONE,
 )
-from tcp_stats import get_tcp_info, get_congestion_algo, compute_sample
+from .tcp_stats import get_tcp_info, get_congestion_algo, compute_sample
 
 
 def run_test(

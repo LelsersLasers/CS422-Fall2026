@@ -42,6 +42,19 @@ from .protocol import (
 from .tcp_stats import get_tcp_info, get_congestion_algo, compute_sample
 
 
+def _expect(sock: socket.socket, expected: int, phase: str) -> int:
+    """expect() that tags protocol errors with the phase they happened in.
+
+    This makes failures.csv actionable: instead of a bare
+    'Unexpected EOF: needed 1, got 0' we learn *which* handshake
+    step the server closed the connection during.
+    """
+    try:
+        return expect(sock, expected)
+    except ProtocolError as e:
+        raise ProtocolError(f'{e} (phase: {phase})') from None
+
+
 def run_test(
     host: str,
     port: int,
@@ -113,7 +126,7 @@ def run_test(
 
         # Server responds with PARAM_EXCHANGE to indicate it is ready
         # to receive client JSON parameters.
-        expect(control, PARAM_EXCHANGE)
+        _expect(control, PARAM_EXCHANGE, 'PARAM_EXCHANGE after cookie')
 
         # Send client parameters: TCP mode, test duration, 1 parallel
         # stream, block size, and client version string.
@@ -131,7 +144,7 @@ def run_test(
 
         # Server responds with CREATE_STREAMS to indicate parameters
         # were accepted and the client should now open the data socket.
-        expect(control, CREATE_STREAMS)
+        _expect(control, CREATE_STREAMS, 'CREATE_STREAMS after params')
 
         # ---------------------------------------------------------------
         # Phase 2: Data connection setup
@@ -156,8 +169,8 @@ def run_test(
         # ---------------------------------------------------------------
         # Phase 3: Test start and data send loop
         # ---------------------------------------------------------------
-        expect(control, TEST_START)
-        expect(control, TEST_RUNNING)
+        _expect(control, TEST_START, 'TEST_START after data cookie')
+        _expect(control, TEST_RUNNING, 'TEST_RUNNING after TEST_START')
 
         # Switch data socket to non-blocking for the send loop.
         data.setblocking(False)
@@ -250,7 +263,7 @@ def run_test(
         send_state(control, TEST_END)
 
         # Server responds with EXCHANGE_RESULTS, inviting JSON exchange.
-        expect(control, EXCHANGE_RESULTS)
+        _expect(control, EXCHANGE_RESULTS, 'EXCHANGE_RESULTS after TEST_END')
 
         # Send client-side results to the server.
         stats = get_tcp_info(data)
@@ -275,10 +288,15 @@ def run_test(
         )
 
         # Receive server-side results JSON.
-        server_result = recv_json(control)
+        try:
+            server_result = recv_json(control)
+        except (ProtocolError, TimeoutError) as e:
+            raise ProtocolError(
+                f'{e} (phase: results JSON exchange)'
+            ) from None
 
         # Progress state machine to completion.
-        expect(control, DISPLAY_RESULTS)
+        _expect(control, DISPLAY_RESULTS, 'DISPLAY_RESULTS after results')
         send_state(control, IPERF_DONE)
 
         return samples, bytes_sent, actual_algo, server_result

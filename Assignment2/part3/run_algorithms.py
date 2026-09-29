@@ -34,6 +34,23 @@ from part1.utils import expect_linux, load_servers, write_csv, write_json
 ALGORITHMS = ['cubic', 'reno', 'bbr']
 
 
+def available_algorithms() -> Optional[set]:
+    """Set of congestion-control algorithms available on this kernel.
+
+    Reads /proc/sys/net/ipv4/tcp_available_congestion_control, which lists every
+    algorithm the kernel can currently load.
+
+    Returns:
+        Set of algorithm names, or None if the proc file is unavailable
+        (e.g., restricted container) and availability cannot be determined.
+    """
+    try:
+        raw = Path('/proc/sys/net/ipv4/tcp_available_congestion_control').read_text()
+    except OSError:
+        return None
+    return set(raw.split())
+
+
 def _algo_pass(
     candidates: list[dict],
     algorithm: str,
@@ -57,6 +74,7 @@ def _algo_pass(
     Returns (successes, failures, attempts).
     """
     algo_dir = output / algorithm
+    algo_dir.mkdir(parents=True, exist_ok=True)
     successes, failures, _summaries, attempts = attempt_tests(
         candidates=candidates,
         destinations=min(destinations, len(candidates)),
@@ -123,14 +141,31 @@ def run_part3(
     attempts_by_algo: dict[str, int] = {}
     selected: list[dict] = []
 
+    skipped_algos: list[str] = []
+    avail = available_algorithms()
+
     # ------------------------------------------------------------------
     # Pass 1: selection (first algorithm, CUBIC / OS default).
     # ------------------------------------------------------------------
-    print(f"Part 3: selecting {destinations} destinations (cubic pass)...")
+    if avail is not None and 'cubic' not in avail:
+        # Fall back to the kernel default for the selection pass.
+        print(
+            f"Part 3: 'cubic' not in available algorithms "
+            f"({', '.join(sorted(avail))}); selection pass will use the "
+            f"kernel default."
+        )
+        pass_algo: Optional[str] = None
+    else:
+        pass_algo = 'cubic'
+
+    print(f"Part 3: selecting {destinations} destinations "
+          f"({pass_algo or 'kernel default'} pass)...")
     successes, failures, attempts = _algo_pass(
-        candidates, 'cubic', destinations, max_attempts, duration,
+        candidates, pass_algo, destinations, max_attempts, duration,
         interval, timeout, block_size, output_dir,
     )
+    # The selection pass results are stored under 'cubic' (the comparison
+    # baseline), which is the kernel default on Linux in practice.
     successes_by_algo['cubic'] = successes
     failures_by_algo['cubic'] = failures
     attempts_by_algo['cubic'] = attempts
@@ -147,6 +182,21 @@ def run_part3(
         # Passes 2+: same selected destinations, other algorithms.
         # ----------------------------------------------------------------
         for algo in ALGORITHMS[1:]:
+            if avail is not None and algo not in avail:
+                # The kernel would reject setsockopt(TCP_CONGESTION) with
+                # ENOENT; record the skip instead of burning attempts.
+                print(
+                    f"Part 3: algorithm '{algo}' is not available on this "
+                    f"kernel (available: {', '.join(sorted(avail))}); "
+                    f"skipping pass. Load it (e.g., `sudo modprobe "
+                    f"tcp_{algo}`) and re-run to include it."
+                )
+                skipped_algos.append(algo)
+                successes_by_algo[algo] = []
+                failures_by_algo[algo] = []
+                attempts_by_algo[algo] = 0
+                continue
+
             print(f"Part 3: re-testing {len(selected)} destinations "
                   f"with '{algo}'...")
             successes, failures, attempts = _algo_pass(
@@ -179,6 +229,7 @@ def run_part3(
         'interval_s': interval,
         'seed': seed,
         'kernel': platform.release(),
+        'skipped': skipped_algos,
         'attempts': attempts_by_algo,
         'completed': {
             algo: len(s) for algo, s in successes_by_algo.items()

@@ -42,6 +42,14 @@ def _col(rows: list[dict], key: str) -> list[float]:
     return [float(r[key]) for r in rows if r.get(key) not in (None, '')]
 
 
+def _fmt_float(value, spec: str = '.2f') -> str:
+    """Format a value for display, tolerating CSV string input or blanks."""
+    try:
+        return format(float(value), spec)
+    except (TypeError, ValueError):
+        return str(value) if value not in (None, '') else 'n/a'
+
+
 # ----------------------------------------------------------------------
 # Part 1: goodput over time
 # ----------------------------------------------------------------------
@@ -72,7 +80,7 @@ def plot_goodput(runs: list[tuple[dict, list[dict]]], outdir: Path) -> Path:
                 title=(
                     f"{summary['host']}:{summary['port']} — "
                     f"{summary['algorithm']} "
-                    f"(mean {summary['mean_mbps']:.2f} Mbit/s)"
+                    f"(mean {_fmt_float(summary.get('mean_mbps'))} Mbit/s)"
                 ),
                 xlabel='Elapsed time (s)',
                 ylabel='Acknowledged goodput (Mbit/s)',
@@ -120,7 +128,8 @@ def _time_series_page(rows: list[dict], title: str,
 
 
 def _scatter_page(rows: list[dict], title: str,
-                  xlims: dict | None, ylims: dict | None) -> None:
+                  xlims: dict | None = None,
+                  ylims: dict | None = None) -> None:
     """One page: cwnd/RTT/loss vs goodput scatter plots."""
     xlims = xlims or {}
     ylims = ylims or {}

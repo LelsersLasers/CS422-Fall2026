@@ -29,6 +29,7 @@
         netTools = with pkgs; [
           pkgs.iputils
           pkgs.traceroute
+          pkgs.iperf3
         ];
 
         latexTools = pkgs.texlive.withPackages (ps: [

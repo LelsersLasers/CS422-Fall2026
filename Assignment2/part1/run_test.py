@@ -179,7 +179,11 @@ def run_test(
 
         start = time.monotonic()
         last_t = start
-        last_ack = get_tcp_info(data)['bytes_acked']
+
+        initial_stats = get_tcp_info(data)
+        last_ack = initial_stats['bytes_acked']
+        last_retrans = initial_stats['total_retrans']
+
         next_sample = start + interval
         end = start + duration
 
@@ -200,9 +204,17 @@ def run_test(
                     'provider': provider,
                     'country': country,
                 }
-                row, last_t, last_ack = compute_sample(
-                    now, start, last_t, last_ack,
-                    stats, server_info, run_id, actual_algo, bytes_sent,
+                row, last_t, last_ack, last_retrans = compute_sample(
+                    now,
+                    start,
+                    last_t,
+                    last_ack,
+                    last_retrans,
+                    stats,
+                    server_info,
+                    run_id,
+                    actual_algo,
+                    bytes_sent,
                 )
                 samples.append(row)
                 next_sample += interval
@@ -249,9 +261,17 @@ def run_test(
                 'provider': provider,
                 'country': country,
             }
-            row, last_t, last_ack = compute_sample(
-                now, start, last_t, last_ack,
-                stats, server_info, run_id, actual_algo, bytes_sent,
+            row, last_t, last_ack, last_retrans = compute_sample(
+                now,
+                start,
+                last_t,
+                last_ack,
+                last_retrans,
+                stats,
+                server_info,
+                run_id,
+                actual_algo,
+                bytes_sent,
             )
             samples.append(row)
 

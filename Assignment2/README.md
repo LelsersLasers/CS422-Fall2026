@@ -79,22 +79,13 @@ output/            ALL intermediate data (CSV/JSON) and final graph PDFs
 
 ## Docker
 
-Run from `Assignment2/` on Linux or WSL2:
+Run from `Assignment2/` on Linux or WSL2 (the helper also works from elsewhere):
 
 ```bash
-docker build -t cs422-assignment2 .
-mkdir -p output
-docker run --rm --network host --user "$(id -u):$(id -g)" \
-  -v "$PWD/data:/app/data:ro" -v "$PWD/output:/app/output" \
-  cs422-assignment2 -n 10 -d 60 -i 0.2 --seed 42
+./scripts/docker.sh build
+./scripts/docker.sh run -n 10 -d 60 -i 0.2 --seed 42
 ```
 
-The Ubuntu 24.04 image installs `requirements.txt` in a Python virtual
-environment and runs `main.py` directly. Results and PDFs persist in `output/`.
-For a short smoke test, use `-n 1 -d 2 -i 0.2 --timeout 3 --max-attempts 5`.
-For a custom server file, put it in `data/` and pass `--servers /app/data/your-file.json`.
-
-Docker uses the host Linux kernel. CUBIC, Reno, and BBR must be available;
-this machine already has all three. The experiment manifests record the
-kernel version. See [SETUP.md](SETUP.md) for the assignment review and remaining
-implementation gaps, including the missing repetitions option.
+* The Ubuntu 24.04 image installs `requirements.txt` in a Python virtual environment and then runs `main.py`.
+* Results and PDFs persist in `output/`.
+* The Docker uses the host Linux kernel and CUBIC, Reno, and BBR must be available.

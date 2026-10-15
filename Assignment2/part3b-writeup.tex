@@ -1,0 +1,333 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,booktabs,array,tabularx}
+\usepackage{xcolor,listings}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Assignment 2, Question 3(b): RTT--Loss AIMD},
+  pdfauthor={CS422 Fall 2026 project team}}
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,keepspaces=true,
+  breaklines=true,frame=single,framesep=5pt,showstringspaces=false}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\repo}{https://github.com/LelsersLasers/CS422-Fall2026}
+\title{Assignment 2, Question 3(b)\\Design of RTT--Loss AIMD (RLA)}
+\author{Ayusha Patra \and Kabileswaran Krishna Kumar \and
+  Vihaan Kodeboyina \and Millan Kumar}
+\date{CS 422: Computer Networks, Fall 2026}
+
+\begin{document}
+\maketitle
+
+\section{Design objective and measurement evidence}
+
+We propose \emph{RTT--Loss AIMD} (RLA), a window controller that combines
+loss-triggered multiplicative decrease with a gentler response to RTT inflation.
+Acknowledged throughput gates additive growth so that enlarging an unused window
+is not the default response to a low sending rate. Standard slow start provides
+initial capacity discovery. The objective is useful throughput with restrained
+queueing, rather than maximum window growth regardless of delay.
+
+The design is motivated by the current Assignment 2 comparison in
+\code{output/part3/manifest.json} and \code{comparison_summary.csv}.
+That manifest records Linux 6.18.50, 60-second transfers, one-second samples,
+and the fixed order CUBIC, Reno, then BBR. There is \emph{one repetition}, with
+10 CUBIC, 8 Reno, and 9 BBR successes across ten selected endpoints.
+The examples below use only runs named by that summary; unrelated CSV files
+left in the output directory are excluded.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{llrr}
+\toprule
+Endpoint & Algorithm & Mean goodput (Mbit/s) & Median SRTT (ms) \\
+\midrule
+LeaseWeb Washington:5210 & CUBIC & 455.47 & 30.73 \\
+ & Reno & 549.60 & 34.37 \\
+ & BBR & 566.90 & 31.45 \\
+moji Paris:5219 & CUBIC & 214.10 & 98.49 \\
+ & Reno & 1.45 & 100.81 \\
+ & BBR & 97.11 & 98.77 \\
+\bottomrule
+\end{tabular}
+\caption{Motivating observations, not causal algorithm rankings. Mean goodput
+is the arithmetic mean of interval rates; median SRTT is computed from each
+run's TCP samples.}
+\label{tab:evidence}
+\end{table}
+
+Washington refers to \code{speedtest.wdc2.us.leaseweb.net:5210}; its
+CUBIC/Reno/BBR run identifiers are \code{d634f0b7e5ee},
+\code{164436543996}, and \code{47b6fa078b58}.
+Paris refers to \code{iperf3.moji.fr:5219}, with runs
+\code{f392bf0bd8f0}, \code{db317c24e38b}, and \code{80dc7b613fb9}.
+For example, the Washington traces show a throughput/delay tradeoff between
+Reno and BBR. The Paris BBR trace includes a consecutive-sample increase of
+1,741 in the cumulative retransmission counter. This motivates one reaction
+per native recovery episode rather than one halving per retransmitted segment.
+The very low Paris Reno rate, despite a similar median RTT, also cautions
+against treating RTT alone as an explanation of throughput.
+
+These sequential public-Internet runs do not establish equal path capacity,
+background traffic, or fairness. They cannot identify an optimal threshold or
+validate RLA. The missing repetitions required by Question 3(a) remain a
+limitation of this evidence. We use the observations to motivate a testable
+design, without claiming that RLA outperforms the measured algorithms.
+
+\section{State, signals, and parameters}
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{p{0.16\linewidth}X}
+\toprule
+Symbol & Meaning and units \\
+\midrule
+$W$, $M$ & Current congestion window in segments and sender MSS in bytes. \\
+$R$ & Positive smoothed RTT in microseconds; Linux stores SRTT scaled by eight,
+so the module divides \code{srtt_us} by eight. \\
+$R_{\min}$ & Minimum positive SRTT observed by the controller over this connection. \\
+$A$, $t$ & Cumulative acknowledged bytes and monotonic ACK-processing time in microseconds. \\
+$W_e,M_e,R_e$ & Window, MSS, and SRTT captured at the start of the epoch. \\
+$A_e,t_e,T_e$ & Epoch byte/time baselines and duration
+$T_e=\max(100{,}000,R_e)$ microseconds. \\
+$S$ & Slow-start threshold, in segments, maintained with Linux recovery. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+After connection establishment, Linux supplies the initial window (normally
+ten segments), threshold, MSS, and window clamp. RLA initializes its private
+state to zero and learns the RTT baseline from positive SRTT observations.
+The baseline is retained through recovery and idle restarts. An epoch is
+initialized on the first valid, non-recovery ACK callback. No RTT sample,
+zero MSS, or an invalid counter/time baseline authorizes window growth.
+
+At the end of an epoch, let $\Delta t=t-t_e>0$ and $\Delta A=A-A_e$.
+The acknowledged rate $G$ and utilization proxy $u$ are
+\[
+ G=\frac{8\Delta A\,10^6}{\Delta t}\quad[\mathrm{bit/s}],\qquad
+ C_e=\frac{8W_eM_e\,10^6}{R_e}\quad[\mathrm{bit/s}],\qquad
+ u=\frac{G}{C_e}=\frac{\Delta A R_e}{\Delta t W_eM_e}.
+\]
+$C_e$ is a rough window-supported rate, \emph{not} an estimate of bottleneck
+capacity. The factor eight converts bytes to bits, and $10^6$ converts
+microseconds to seconds. The implementation compares $5\Delta A R_e$ with
+$4\Delta t W_eM_e$ using checked 64-bit products; an overflow disables
+additive growth for that epoch rather than allowing arithmetic wraparound.
+
+Relative RTT inflation is $q=(R-R_{\min})/R_{\min}$. RLA uses a low threshold
+of 10\%, a high threshold of 25\%, a utilization threshold of 80\%, a loss
+backoff factor of $0.5$, and a delay backoff factor of $0.9$.
+The normal minimum is two segments, subject to the kernel's window clamp.
+These are explicit starting heuristics, not fitted or validated constants.
+
+For loss feedback, the implementation uses the kernel's
+\code{ssthresh} callback rather than estimating independent
+packet-loss probability from a coarse user-space sample. Fast retransmission,
+RACK/SACK recovery, and timeouts remain Linux TCP responsibilities.
+The same backoff is used for native ECN congestion responses.
+The Python measurements separately log cumulative \code{total_retrans} as
+a loss proxy and \code{lost} as the currently outstanding lost segments;
+the latter is not cumulative. Neither counter is itself a packet-loss probability.
+
+\section{Window-update pseudocode}
+
+Loss handling and normal ACK processing are separate events. A loss response
+has priority because Linux does not let normal RLA epoch decisions replace
+its recovery processing. Reducing the window does not retract outstanding
+bytes, and all sending remains subject to receiver flow control.
+
+\clearpage
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{10}{11.5}\selectfont]
+INITIALIZE:
+    keep Linux initial cwnd W, threshold S, and window clamp
+    Rmin = unknown; epoch = invalid
+
+ON NATIVE CONGESTION/LOSS THRESHOLD REQUEST:
+    invalidate epoch
+    return S = max(2, floor(W / 2))
+    # Linux applies recovery/PRR or its RTO restart.
+
+ON ENTERING OR LEAVING RECOVERY, OR NATIVE IDLE RESTART:
+    invalidate epoch; retain Rmin
+
+ON AN ACK ELIGIBLE FOR CONGESTION AVOIDANCE:
+    if native recovery is active:
+        invalidate epoch
+        allow Linux/Reno-style timeout restart if in RTO loss state
+        return                  # no custom delay or additive response
+
+    read A, t, R, MSS, W, S, ACKed_segments, and cwnd_limited
+    Rmin = min(Rmin, R) over positive R observations
+    if R <= 0 or MSS <= 0 or W <= 0 or clamp <= 0:
+        invalidate epoch; return
+    if A or t went backwards:
+        snapshot a new epoch; return
+    if epoch is invalid:
+        snapshot (Ae, te, We, Me, Re)
+        Te = max(100000 microseconds, Re)
+
+    due = (t - te >= Te)
+    q = (R - Rmin) / Rmin
+    if due and q > 0.25:
+        W = min(clamp, max(2, floor(0.90 * W)))
+        S = W                   # exit slow start as well
+    else if W < S and cwnd_limited:
+        W = min(clamp, S, W + ACKed_segments)  # standard slow start
+    else if due and cwnd_limited and q < 0.10:
+        if checked utilization calculation succeeds and u >= 0.80:
+            W = min(clamp, W + 1)
+    else:
+        hold W
+
+    if due:
+        snapshot a new epoch using the resulting W
+        # Exactly one epoch decision; no missed-epoch catch-up.
+\end{lstlisting}
+
+Only one branch changes the window on an eligible ACK. In the 10--25\%
+delay band, congestion avoidance holds the window; startup can still increase
+it until the high threshold or native threshold ends startup.
+Threshold comparisons are strict for delay: exactly 10\% does not authorize
+additive probing, and exactly 25\% does not trigger a delay decrease.
+The 80\% utilization comparison is inclusive.
+
+Normal loss backoff has a two-segment threshold, but native RTO handling can
+temporarily set the actual window to one segment. RLA preserves this behavior.
+It also retains Linux's undo behavior for spuriously detected congestion.
+Recovery entry/exit and undo invalidate epoch baselines so that a native
+decrease is not followed by a second decrease from the same mixed epoch.
+The congestion controller does not halve once per duplicate ACK or per
+retransmission counter increment.
+
+\section{Why these rules}
+
+\textbf{Slow start and shorter epochs.}
+The earlier proposal started at ten segments and added only one segment per
+second. With an MSS of 1,448 bytes and RTT of 100 ms, ten segments support
+only about 1.16 Mbit/s; twenty support about 2.32 Mbit/s. That rule would
+spend most of a ten-second experiment below the rates seen in our traces.
+Standard slow start grows quickly while ACKs show the window is used.
+Subsequent epochs are at least 100 ms and at least one starting SRTT,
+giving the changed window time to affect feedback. This is faster than
+one-second probing on ordinary measured RTTs, without introducing an
+independently exponentially growing throughput target.
+
+\textbf{Loss first, delay before more loss.}
+The measured retransmission bursts motivate native episode-based recovery.
+A 50\% threshold reduction is a conventional conservative response to
+congestion feedback. A separate 10\% window reduction at elevated RTT can
+drain a queue before loss occurs. The delay signal is relative inflation,
+not a direct queue occupancy measurement. The hold band separates increase
+and decrease thresholds to reduce switching from small RTT fluctuations.
+
+\textbf{Throughput-gated additive probing.}
+A large window does not guarantee goodput: an application, receiver, pacing,
+or shared bottleneck can impose a lower rate. Requiring 80\% utilization
+avoids automatically growing an apparently unused allowance. The kernel's
+window-limited check supplies a second guard. These tests cannot distinguish
+all causes of low throughput, and can conservatively stall an underserved
+flow. A gate failure holds the window rather than increasing it.
+
+\textbf{Relation to the bandwidth--delay product.}
+At capacity $B$ bits/s and propagation RTT $R_p$ seconds, the propagation
+BDP is $BR_p/8$ bytes. A roughly sufficient unqueued window is
+$W\simeq BR_p/(8M)$ segments. Larger windows can build queues without
+proportional goodput growth. RLA uses RTT inflation to discourage this
+operating regime, but does not know $B$ or the true $R_p$.
+For illustration, substituting the Washington BBR mean goodput
+566.90 Mbit/s and its observed minimum SRTT of 28.041 ms gives about
+1.99 MB. This is a \emph{measurement-based scale}, not a verified bottleneck
+BDP: goodput may be below capacity and even minimum SRTT can contain queueing.
+
+\section{Expected fairness and stability}
+
+The fairness goal is similar long-run goodput for saturated RLA flows sharing
+one bottleneck, initially assuming equal MSS and comparable propagation RTT.
+If flows have synchronized epochs and common congestion feedback, equal
+additive increments preserve their window difference, while a shared
+multiplicative decrease scales that difference by 0.5 or 0.9. Repeated shared
+decreases therefore tend to reduce window inequality. With equal RTT and MSS,
+more equal windows can imply more equal rates.
+
+Those conditions need not hold. Epochs are asynchronous, drops can affect
+only some flows, and throughput gating can prevent the smaller flow from
+growing. Epochs longer than 100 ms depend on RTT, so longer-RTT flows get
+fewer update opportunities. Equal windows also give different rates at
+different RTTs. Relative delay thresholds allow a larger absolute delay
+increase on longer-baseline paths. Late arrivals may observe a persistently
+queued RTT baseline. RLA can yield to Reno/CUBIC flows that keep growing
+until loss, and no fairness guarantee is made against BBR or other controllers.
+The available independent public-path measurements do not test shared-bottleneck
+fairness.
+
+Under stationary capacity, saturated use, and responsive feedback, additive
+probing increases pressure at low delay, while high delay and native losses
+reduce it. The hold band admits a possible operating region with
+$0.10\le q\le0.25$ and no congestion events. This supports an expectation of
+bounded operation or a sawtooth around an operating region, not a proof of
+convergence to one fixed rate. Delayed feedback, simultaneous startup,
+continuing losses, or a bandwidth change can sustain oscillations.
+Conversely, low measured utilization can produce a stable but inefficient
+hold. Stability, high utilization, and fairness must be evaluated separately.
+
+\section{Assumptions, implementation, and limitations}
+
+RLA assumes meaningful positive SRTT measurements, monotonic acknowledged-byte
+counters, and a sender able to enforce a window through TCP. SRTT smooths
+short events; ACK compression and cumulative ACK bursts distort epoch rates.
+Changes in MSS or the window within an epoch make its utilization estimate
+approximate, especially during startup. A lifetime RTT minimum can become
+stale after a route change or can start too high behind a persistent queue.
+Wireless losses, reordering, and spurious congestion indications can cause
+unnecessary backoff despite Linux's recovery/undo mechanisms.
+
+The 100-ms floor is deliberately conservative on short-RTT paths. Additive
+recovery can still be slow on high-BDP paths after a large loss reduction.
+Fast startup can overshoot before an epoch completes, and repeated delay
+decreases can sacrifice throughput against more aggressive competing flows.
+No finite thresholds establish universal fairness or convergence.
+
+The \href{\repo}{project repository} contains the
+\href{\repo/blob/millan/a2_3b_and_a3/Assignment3/kernel/tcp_rla.c}{RLA kernel module}.
+This single source file implements window arithmetic, registers \code{rla},
+supplies live TCP state, and delegates recovery to Linux.
+
+Build and load commands are in \code{Assignment3/README.md}.
+Integration with the Assignment 2 experiment pipeline, repeated four-algorithm
+measurements, plots, and aggregate analysis are deferred to later work.
+Repository links refer to the implementation branch and become available
+when that branch is pushed.
+
+Compared with the earlier \code{plans/part3b-design.md} proposal, the substantive
+changes are standard slow start, $\max(100\,\mathrm{ms},R_e)$ epochs instead
+of one-second epochs, epoch-start utilization snapshots, integer/clamp rules,
+and native event-based recovery instead of periodic retransmission-based
+halving. These changes make a concrete kernel implementation possible and
+address startup underutilization. They have not established comparative
+performance, fairness, or convergence.
+
+\textbf{AI acknowledgment.} OpenAI Codex assisted with reading the assignments,
+reviewing existing measurements, developing the revised algorithm and Linux
+implementation and preparing this report section. The reported
+measurements are identified by raw run files; hypotheses and limitations are
+distinguished from demonstrated results.
+
+\begin{thebibliography}{9}
+\bibitem{assignment} CS 422, Fall 2026. \emph{Assignment 2}, Question 3(b),
+and \emph{Assignment 3}, Option 1. Assignment PDFs supplied in this repository.
+\bibitem{linux} Linux kernel sources, \code{net/ipv4/tcp_cong.c},
+\code{net/ipv4/tcp_input.c}, and \code{include/net/tcp.h}.
+\href{https://github.com/torvalds/linux/tree/v6.18/net/ipv4}{Linux v6.18 TCP source}.
+The actual module was built against the running Linux 6.18.50 development tree.
+\bibitem{aimd} M. Allman, V. Paxson, and E. Blanton.
+\emph{TCP Congestion Control}, RFC 5681, 2009.
+\url{https://www.rfc-editor.org/rfc/rfc5681}.
+\bibitem{kbuild} Linux kernel documentation.
+\emph{Building External Modules}.
+\url{https://docs.kernel.org/kbuild/modules.html}.
+\end{thebibliography}
+\end{document}

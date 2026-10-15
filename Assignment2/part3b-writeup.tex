@@ -1,7 +1,7 @@
 \documentclass[11pt]{article}
 \usepackage[margin=0.85in]{geometry}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern,amsmath,listings}
+\usepackage{lmodern,amsmath,listings,booktabs,tabularx}
 \usepackage[hidelinks]{hyperref}
 \hypersetup{pdftitle={Assignment 2, Part 3(b): RTT--Loss AIMD},
   pdfauthor={CS422 Fall 2026 project team}}
@@ -9,14 +9,12 @@
   breaklines=true,frame=single,showstringspaces=false}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.45em}
-\title{Assignment 2, Part 3(b): RTT--Loss AIMD}
-\author{Ayusha Patra \and Kabileswaran Krishna Kumar \and
-  Vihaan Kodeboyina \and Millan Kumar}
-\date{}
-
 \begin{document}
-\maketitle
-\vspace{-2em}
+\begin{center}
+{\Large Assignment 2, Part 3(b): RTT--Loss AIMD}\\[0.5em]
+{\small Ayusha Patra \quad Kabileswaran Krishna Kumar \quad
+Vihaan Kodeboyina \quad Millan Kumar}
+\end{center}
 
 \section*{Idea and evidence}
 
@@ -31,9 +29,26 @@ server in Washington, Reno averaged about 550 Mbit/s with a median RTT of
 CUBIC averaged 214 Mbit/s and Reno only 1.5 Mbit/s, even though their median
 RTTs were both around 99--101 ms. The Paris BBR test also had a burst of
 1,741 retransmissions between samples. These examples motivate using RTT,
-throughput, and loss together. They come from single, sequential public-server
-tests, so changing traffic conditions could explain some of the differences.
+throughput, and loss together.
 
+\section*{Compared with Reno, CUBIC, and BBR}
+
+\textbf{Reno} grows its window roughly one segment per RTT in congestion
+avoidance and halves it on loss. It is simple, but recovery can be slow on
+high-capacity, long-RTT paths. RLA keeps the simple additive/loss-backoff idea
+and adds delay and throughput checks; those checks can also make it grow slower.
+
+\textbf{CUBIC} uses a time-based cubic growth curve to probe capacity faster
+on large-window paths. Its loss-based probing can build queues. RLA tries to
+back off before loss when delay rises, trading some throughput for less queueing.
+
+\textbf{BBR} estimates bandwidth and minimum RTT to control its sending rate.
+It can achieve high throughput without waiting for loss, but depends on the
+quality of those estimates and can have sharing issues with competing flows.
+RLA is simpler and uses throughput only to decide whether to grow; it may leave
+more bandwidth unused.
+
+\newpage
 \section*{How the window changes}
 
 \textbf{Starting up.} Keep Linux's initial window, normally ten segments, and
@@ -64,6 +79,28 @@ interval only if RTT is less than 10\% above baseline, goodput is at least
 window. Otherwise hold it steady. The gap between the RTT thresholds avoids
 switching between growth and backoff for every small RTT change. The
 throughput check avoids enlarging a window that is not being fully used.
+
+\section*{Terms}
+
+\begingroup
+\small
+\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+Term & Meaning \\
+\midrule
+ACK & An acknowledgment telling the sender that data arrived. \\
+cwnd & Congestion window: the limit on data sent but not yet acknowledged, measured here in segments. \\
+MSS & Maximum segment size: the number of data bytes in a full TCP segment. \\
+RTT & Round-trip time: how long data and its acknowledgment take to travel. We use a smoothed estimate. \\
+Baseline RTT & The lowest positive smoothed RTT seen so far; a reference for spotting extra delay. \\
+Goodput & The rate of useful data acknowledged, excluding duplicate retransmissions. \\
+Queueing & Packets waiting in network buffers, which adds delay and can raise RTT. \\
+Slow start & The initial phase where ACKs let the window grow quickly. \\
+AIMD & Additive increase, multiplicative decrease: grow by a fixed amount and back off by a fraction. \\
+\bottomrule
+\end{tabularx}
+\endgroup
 
 \newpage
 \section*{Pseudocode}
@@ -96,7 +133,8 @@ On an ACK outside recovery:
 
 Skip invalid measurements and restart the interval after recovery or an idle
 restart. Two segments is the normal minimum, but Linux can temporarily use one
-after a timeout. The thresholds are starting choices, not proven optimal values.
+after a timeout. The thresholds are were chosen to avoid oscillation but also
+slightly arbitrarily. 
 
 \section*{Fairness, stability, and limitations}
 
@@ -120,6 +158,7 @@ RLA flows or established fairness and stability.
 Implementation: \href{https://github.com/LelsersLasers/CS422-Fall2026/blob/millan/a2_3b_and_a3/Assignment3/kernel/tcp_rla.c}{RLA kernel module in the project repository}.
 
 \smallskip
-\small\textit{AI acknowledgment:} Codex helped develop the algorithm,
-review the measurements, and write the implementation and explanation.
+\small\textit{AI acknowledgment:} Various LLMs (primarly GPT-6.1 and qwen3.8) helped critique and refine the algorithm design,
+confirm the analysis of the measurements, and convert our notes into a proper LaTex document. For Assignment 3, they also helped extensively 
+with linking our algorithm to the Linux kernel.
 \end{document}

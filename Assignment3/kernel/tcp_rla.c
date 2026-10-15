@@ -124,8 +124,7 @@ static inline bool rla_multiply(u64 a, u64 b, u64 *out)
 {
     /* Check before multiplying; zero is safe and must not cause a
      * division by zero. */
-    if ((b != 0) && (a > (~(u64)0) / b))
-    {
+    if ((b != 0) && (a > (~(u64)0) / b)) {
         return false;
     }
     *out = a * b;
@@ -160,8 +159,7 @@ static inline bool rla_busy(const struct rla_state *ca, u64 bytes, u64 dt)
         (rla_multiply(lhs, 5, &lhs)) &&
         (rla_multiply(dt, ca->epoch_cwnd, &rhs)) &&
         (rla_multiply(rhs, ca->epoch_mss, &rhs)) &&
-        (rla_multiply(rhs, 4, &rhs)))
-    {
+        (rla_multiply(rhs, 4, &rhs))) {
         return lhs >= rhs;
     }
     return false;
@@ -182,12 +180,10 @@ static inline void rla_begin_epoch(struct rla_state *ca,
     ca->epoch_cwnd = cwnd;
     ca->epoch_mss = in->mss;
     /* Wait at least one starting RTT for feedback, with a 100-ms floor. */
-    if (in->rtt_us > RLA_MIN_EPOCH_US)
-    {
+    if (in->rtt_us > RLA_MIN_EPOCH_US) {
         ca->epoch_duration_us = in->rtt_us;
     }
-    else
-    {
+    else {
         ca->epoch_duration_us = RLA_MIN_EPOCH_US;
     }
     ca->epoch_valid = true;
@@ -214,61 +210,51 @@ static inline struct rla_decision rla_on_ack(struct rla_state *ca,
 
     /* Ignore zero RTTs: zero is unknown, not a propagation-time sample. */
     if ((in->rtt_us != 0) &&
-        ((ca->min_rtt_us == 0) || (in->rtt_us < ca->min_rtt_us)))
-    {
+        ((ca->min_rtt_us == 0) || (in->rtt_us < ca->min_rtt_us))) {
         ca->min_rtt_us = in->rtt_us;
     }
     if ((in->rtt_us == 0) || (in->mss == 0) ||
-        (in->cwnd == 0) || (in->clamp == 0))
-    {
+        (in->cwnd == 0) || (in->clamp == 0)) {
         /* Do not grow or back off using incomplete measurements. */
         rla_reset_epoch(ca);
         return out;
     }
     if ((ca->epoch_valid == true) &&
-        ((in->now_us < ca->epoch_us) || (in->bytes_acked < ca->epoch_bytes)))
-    {
+        ((in->now_us < ca->epoch_us) || (in->bytes_acked < ca->epoch_bytes))) {
         /* Rebaseline first; this avoids unsigned counter underflow. */
         rla_begin_epoch(ca, in, in->cwnd);
         return out;
     }
-    if (ca->epoch_valid == false)
-    {
+    if (ca->epoch_valid == false) {
         rla_begin_epoch(ca, in, in->cwnd);
     }
-    else if (in->now_us - ca->epoch_us >= ca->epoch_duration_us)
-    {
+    else if (in->now_us - ca->epoch_us >= ca->epoch_duration_us) {
         /* Use actual elapsed time, not the nominal epoch duration. */
         due = true;
         busy = rla_busy(ca, in->bytes_acked - ca->epoch_bytes,
                         in->now_us - ca->epoch_us);
     }
 
-    if ((due == true) && ((u64)in->rtt_us * 100 > (u64)ca->min_rtt_us * 125))
-    {
+    if ((due == true) && ((u64)in->rtt_us * 100 > (u64)ca->min_rtt_us * 125)) {
         /*
          * RTT > 125% of baseline suggests queue growth. Cross-products make
          * the strict threshold exact without floating point or division.
          */
         next = (u64)in->cwnd * 9 / 10;
-        if (next < RLA_MIN_CWND)
-        {
+        if (next < RLA_MIN_CWND) {
             next = RLA_MIN_CWND;
         }
-        if (next > in->clamp)
-        {
+        if (next > in->clamp) {
             out.cwnd = in->clamp;
         }
-        else
-        {
+        else {
             out.cwnd = (u32)next;
         }
         /* End slow start so it cannot undo this backoff. */
         out.ssthresh = out.cwnd;
         out.action = RLA_DELAY;
     }
-    else if ((in->cwnd < in->ssthresh) && (in->cwnd_limited == true))
-    {
+    else if ((in->cwnd < in->ssthresh) && (in->cwnd_limited == true)) {
         /*
          * Standard slow start: min(cwnd + newly ACKed packets,
          * ssthresh, clamp). Grow on eligible ACKs, not just epoch boundaries,
@@ -276,34 +262,28 @@ static inline struct rla_decision rla_on_ack(struct rla_state *ca,
          * to avoid overflow, then cap before narrowing back to u32.
          */
         next = (u64)in->cwnd + in->acked;
-        if (next > in->ssthresh)
-        {
+        if (next > in->ssthresh) {
             next = in->ssthresh;
         }
-        if (next > in->clamp)
-        {
+        if (next > in->clamp) {
             out.cwnd = in->clamp;
         }
-        else
-        {
+        else {
             out.cwnd = (u32)next;
         }
         out.action = RLA_STARTUP;
     }
     else if ((due == true) && (in->cwnd_limited == true) && (busy == true) &&
-             ((u64)in->rtt_us * 100 < (u64)ca->min_rtt_us * 110))
-    {
+             ((u64)in->rtt_us * 100 < (u64)ca->min_rtt_us * 110)) {
         /*
          * Probe only below 110% of baseline, when the old window is used.
          * The 10%-25% gap creates a hold band to reduce small oscillations.
          */
         next = (u64)in->cwnd + 1;
-        if (next > in->clamp)
-        {
+        if (next > in->clamp) {
             out.cwnd = in->clamp;
         }
-        else
-        {
+        else {
             out.cwnd = (u32)next;
         }
         out.action = RLA_ADD;
@@ -312,8 +292,7 @@ static inline struct rla_decision rla_on_ack(struct rla_state *ca,
      * Start from now and the resulting window; never replay missed epochs as
      * several instant increases/decreases after one delayed callback.
      */
-    if (due == true)
-    {
+    if (due == true) {
         rla_begin_epoch(ca, in, out.cwnd);
     }
     return out;
@@ -368,8 +347,7 @@ static void rla_set_state(struct sock *sk, u8 state)
     /* Called before Linux updates ca_state. Also reset on recovery exit. */
     /* States from CWR onward include ECN reduction, fast recovery, and loss. */
     if ((state >= TCP_CA_CWR) ||
-        (inet_csk(sk)->icsk_ca_state >= TCP_CA_CWR))
-    {
+        (inet_csk(sk)->icsk_ca_state >= TCP_CA_CWR)) {
         rla_reset_epoch(inet_csk_ca(sk));
     }
 } /* rla_set_state() */
@@ -381,8 +359,7 @@ static void rla_set_state(struct sock *sk, u8 state)
  */
 static void rla_cwnd_event(struct sock *sk, enum tcp_ca_event event)
 {
-    if (event == CA_EVENT_CWND_RESTART)
-    {
+    if (event == CA_EVENT_CWND_RESTART) {
         rla_reset_epoch(inet_csk_ca(sk));
     }
 } /* rla_cwnd_event() */
@@ -414,15 +391,13 @@ static void rla_cong_avoid(struct sock *sk, u32 ack, u32 acked)
         .cwnd_limited = tcp_is_cwnd_limited(sk)
     };
 
-    if (inet_csk(sk)->icsk_ca_state >= TCP_CA_CWR)
-    {
+    if (inet_csk(sk)->icsk_ca_state >= TCP_CA_CWR) {
         rla_reset_epoch(ca);
         /*
          * Native Reno-style restart after RTO; never apply delay/growth
          * rules to recovery traffic. PRR owns CWR/fast recovery.
          */
-        if (inet_csk(sk)->icsk_ca_state == TCP_CA_Loss)
-        {
+        if (inet_csk(sk)->icsk_ca_state == TCP_CA_Loss) {
             tcp_reno_cong_avoid(sk, ack, acked);
         }
         return;
@@ -439,8 +414,7 @@ static void rla_cong_avoid(struct sock *sk, u32 ack, u32 acked)
     tcp_snd_cwnd_set(tp, out.cwnd);
     tp->snd_ssthresh = out.ssthresh;
     /* Discard old native additive-increase credits after our delay decrease. */
-    if (out.action == RLA_DELAY)
-    {
+    if (out.action == RLA_DELAY) {
         tp->snd_cwnd_cnt = 0;
     }
 } /* rla_cong_avoid() */

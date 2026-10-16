@@ -1,0 +1,52 @@
+# Assignment 3: RLA kernel module
+
+[kernel/tcp_rla.c](kernel/tcp_rla.c) implements RTT–Loss AIMD (RLA).
+It uses RTT, loss feedback, and acknowledged throughput to adjust the congestion
+window. The design is explained in the Assignment 2
+[writeup PDF](../Assignment2/part3b-writeup.pdf) and
+[LaTeX source](../Assignment2/part3b-writeup.tex).
+
+Run the following commands from the repository root on a **Linux machine or
+Linux virtual machine**. Repeated experiments, plots, and aggregate analysis
+will be added later.
+
+## Build
+
+Install a C compiler, make, kernel-module utilities, and the development files
+for the kernel currently running. On Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install build-essential kmod "linux-headers-$(uname -r)"
+make -C Assignment3/kernel
+```
+
+This creates `Assignment3/kernel/tcp_rla.ko`, the loadable module. If the package
+manager cannot find headers for your running kernel, use a distribution kernel
+with matching headers available, or obtain the development files from whoever
+provided that kernel.
+
+On other distributions, install the equivalent packages. The Makefile uses
+`/lib/modules/$(uname -r)/build` by default. If your development files are
+elsewhere, set `KDIR`; if the kernel requires a different compiler, set `CC`:
+
+```bash
+make -C Assignment3/kernel KDIR=/path/to/kernel/build CC=gcc
+```
+
+It has been tested with x86-64 Linux 6.18.50, GCC 15.2.0, binutils 2.46.
+
+## Load and unload
+
+```bash
+# Check that the module's kernel version matches uname -r.
+modinfo -F vermagic Assignment3/kernel/tcp_rla.ko
+uname -r
+
+# Register RLA and check that it appears in the available algorithms.
+sudo insmod Assignment3/kernel/tcp_rla.ko
+cat /proc/sys/net/ipv4/tcp_available_congestion_control
+
+# Unload when finished.
+sudo rmmod tcp_rla
+```

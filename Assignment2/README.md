@@ -85,3 +85,8 @@ I got no idea about this but we can figure this out once the implementation kind
 docker build -t cs422-assignment2 .
 docker run --rm --network host -v "$PWD/data:/app/data:ro" -v "$PWD/output:/app/output" cs422-assignment2 -n 10 -d 60 -i 0.2
 ```
+## 3b
+
+Design: [LaTeX](part3b-writeup.tex)/[PDF](part3b-writeup.pdf)
+
+The corresponding Assignment 3 kernel module are in [Assignment3](../Assignment3/README.md).

@@ -67,8 +67,8 @@ window's approximate supported rate:
 Here, cwnd is in segments and MSS is bytes per segment. This rate is only an
 approximation, not a measurement of the link's capacity.
 
-\textbf{Backing off.} If RTT rises more than 25\% above the baseline, reduce
-cwnd by 10\% and leave slow start. On a native TCP loss/congestion event,
+\textbf{Backing off.} At a completed control interval, if RTT rises more than
+25\% above the baseline, reduce cwnd by 10\% and leave slow start. On a native TCP loss/congestion event,
 request a threshold of half the window and let Linux handle recovery.
 Respond once through that recovery mechanism, rather than halving for every
 retransmitted packet in a burst.
@@ -94,7 +94,7 @@ cwnd & Congestion window: the limit on data sent but not yet acknowledged, measu
 MSS & Maximum segment size: the number of data bytes in a full TCP segment. \\
 RTT & Round-trip time: how long data and its acknowledgment take to travel. We use a smoothed estimate. \\
 Baseline RTT & The lowest positive smoothed RTT seen so far; a reference for spotting extra delay. \\
-Goodput & The rate of useful data acknowledged, excluding duplicate retransmissions. \\
+Goodput & The rate of newly acknowledged data, counting each byte once even if retransmitted. \\
 Queueing & Packets waiting in network buffers, which adds delay and can raise RTT. \\
 Slow start & The initial phase where ACKs let the window grow quickly. \\
 AIMD & Additive increase, multiplicative decrease: grow by a fixed amount and back off by a fraction. \\
@@ -119,7 +119,7 @@ On an ACK outside recovery:
     update base_RTT
     if interval finished and RTT > 1.25 * base_RTT:
         cwnd = max(2, floor(0.90 * cwnd))
-        end slow start
+        threshold = cwnd
     else if in slow start and constrained by cwnd:
         cwnd += newly ACKed segments, up to the threshold
     else if interval finished and RTT < 1.10 * base_RTT:

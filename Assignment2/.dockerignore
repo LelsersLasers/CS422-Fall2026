@@ -1,0 +1,13 @@
+*
+!Dockerfile
+!main.py
+!plot_results.py
+!requirements.txt
+!part1/
+!part1/*.py
+!part2/
+!part2/*.py
+!part3/
+!part3/*.py
+!data/
+!data/*.json

@@ -79,9 +79,13 @@ output/            ALL intermediate data (CSV/JSON) and final graph PDFs
 
 ## Docker
 
-I got no idea about this but we can figure this out once the implementation kind of works:
+Run from `Assignment2/` on Linux or WSL2 (the helper also works from elsewhere):
 
 ```bash
-docker build -t cs422-assignment2 .
-docker run --rm --network host -v "$PWD/data:/app/data:ro" -v "$PWD/output:/app/output" cs422-assignment2 -n 10 -d 60 -i 0.2
+./scripts/docker.sh build
+./scripts/docker.sh run -n 10 -d 60 -i 0.2 --seed 42
 ```
+
+* The Ubuntu 24.04 image installs `requirements.txt` in a Python virtual environment and then runs `main.py`.
+* Results and PDFs persist in `output/`.
+* The Docker uses the host Linux kernel and CUBIC, Reno, and BBR must be available.

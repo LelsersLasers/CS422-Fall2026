@@ -19,8 +19,6 @@ Output files (written under the given output directory):
     failures.csv                  Failed attempts and their errors.
     manifest.json                 Selection, configuration, and shortfall.
 
-Usage (directly, for a quick smoke test):
-    python3 -m part1.run_iperf -n 1 -d 3 -i 0.2
 """
 
 import math

@@ -164,6 +164,11 @@ def run_test(
 
         # Query the actual congestion algorithm in use.
         actual_algo = get_congestion_algo(data)
+        if algorithm and actual_algo != algorithm:
+            raise ProtocolError(
+                f'Requested congestion algorithm {algorithm!r}, '
+                f'but data socket uses {actual_algo!r}'
+            )
 
         # ---------------------------------------------------------------
         # Phase 3: Test start and data send loop

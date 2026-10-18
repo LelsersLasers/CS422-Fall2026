@@ -89,3 +89,9 @@ Run from `Assignment2/` on Linux or WSL2 (the helper also works from elsewhere):
 * The Ubuntu 24.04 image installs `requirements.txt` in a Python virtual environment and then runs `main.py`.
 * Results and PDFs persist in `output/`.
 * The Docker uses the host Linux kernel and CUBIC, Reno, and BBR must be available.
+
+## 3b
+
+Design: [LaTeX](part3b-writeup.tex)/[PDF](part3b-writeup.pdf)
+
+The corresponding Assignment 3 kernel module are in [Assignment3](../Assignment3/README.md).

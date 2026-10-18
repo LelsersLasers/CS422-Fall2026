@@ -1,0 +1,21 @@
+{
+  "cpu_util_total": 0.811726204324715,
+  "cpu_util_user": 0.1079012496008694,
+  "cpu_util_system": 0.7038154118522084,
+  "sender_has_retransmits": -1,
+  "congestion_used": "htcp",
+  "streams": [
+    {
+      "id": 1,
+      "bytes": 20054016,
+      "retransmits": -1,
+      "jitter": 0,
+      "errors": 0,
+      "omitted_errors": 0,
+      "packets": 0,
+      "omitted_packets": 0,
+      "start_time": 0,
+      "end_time": 10.479019
+    }
+  ]
+}

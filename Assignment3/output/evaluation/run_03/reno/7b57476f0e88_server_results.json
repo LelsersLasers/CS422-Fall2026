@@ -1,0 +1,16 @@
+{
+  "cpu_util_total": 0.030971,
+  "cpu_util_user": 0,
+  "cpu_util_system": 0.031141,
+  "sender_has_retransmits": -1,
+  "streams": [
+    {
+      "id": 1,
+      "bytes": 4279260,
+      "retransmits": -1,
+      "jitter": 0,
+      "errors": 0,
+      "packets": 0
+    }
+  ]
+}

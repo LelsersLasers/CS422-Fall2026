@@ -13,6 +13,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from subprocess import run
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'Assignment2'))
@@ -139,7 +140,20 @@ def main():
     if len(cohort) < args.destinations or manifest['failed_trials']:
         print('WARNING: incomplete matching. Exclude destinations without every required trial.')
         return 2
-    return 0
+
+    # Generate comparison plots and aggregate statistics automatically.
+
+    plot_script = ROOT / 'Assignment3' / 'plot_evaluation.py'
+    result = run(
+       	[
+            sys.executable,
+            str(plot_script),
+            '--output',
+            str(output),
+       	],
+        check=False,
+    )
+    return result.returncode
 
 
 if __name__ == '__main__':

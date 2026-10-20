@@ -6,3 +6,4 @@ kernel/.*.cmd
 kernel/Module.symvers
 kernel/modules.order
 kernel/.tmp_versions/
+output/

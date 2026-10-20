@@ -8,7 +8,8 @@ window. The design is explained in the Assignment 2
 
 Run the following commands from the repository root on a **Linux machine or
 Linux virtual machine**. 
-## Build
+
+## 1. Build the Kernel Module
 
 Install a C compiler, make, kernel-module utilities, and the development files
 for the kernel currently running. On Ubuntu/Debian:
@@ -34,39 +35,28 @@ make -C Assignment3/kernel KDIR=/path/to/kernel/build CC=gcc
 
 It has been tested with x86-64 Linux 6.18.50, GCC 15.2.0, binutils 2.46.
 
-## Load and unload
+## 2. Load and Kernel Module
+
+Verify the module's kernel version:
 
 ```bash
-# Check that the module's kernel version matches uname -r.
 modinfo -F vermagic Assignment3/kernel/tcp_rla.ko
 uname -r
-
-# Register RLA and check that it appears in the available algorithms.
-sudo insmod Assignment3/kernel/tcp_rla.ko
-cat /proc/sys/net/ipv4/tcp_available_congestion_control
-
-# Unload when finished.
-sudo rmmod tcp_rla
 ```
 
-
-## Python Evaluation
-
-The evaluation compares RLA, CUBIC, Reno, and BBR using the TCP testing code from Assignment 2.
-
-Make sure all four algorithms are available and `matplotlib` is installed.
-
-For environment setup and Python dependencies, refer to the
-[Assignment 2 README](../Assignment2/README.md), including its
-Docker and requirements.txt instructions.
-
-Install the Python dependencies from the repository root:
+Load RLA:
 
 ```bash
-python3 -m pip install -r Assignment2/requirements.txt
+sudo insmod Assignment3/kernel/tcp_rla.ko
 ```
 
-Make sure the RLA kernel module is loaded and all four algorithms are available:
+If BBR is not available, load it:
+
+```bash
+sudo modprobe tcp_bbr
+```
+
+Verify the available congestion-control algorithms:
 
 ```bash
 cat /proc/sys/net/ipv4/tcp_available_congestion_control
@@ -74,8 +64,26 @@ cat /proc/sys/net/ipv4/tcp_available_congestion_control
 
 The output should include `rla`, `cubic`, `reno`, and `bbr`.
 
+**Keep RLA loaded while running the experiments.**
 
-### Run
+## 3. Python Evaluation Setup
+
+The evaluation compares RLA, CUBIC, Reno, and BBR using the TCP testing code from Assignment 2.
+
+For additional environment setup instructions, see the [Assignment 2 README](../Assignment2/README.md).
+
+From the repository root, create a Python virtual environment and install dependencies:
+
+```bash
+sudo apt-get install python3-venv
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r Assignment2/requirements.txt
+```
+
+The evaluation uses the Linux kernel's TCP congestion-control implementations. The Assignment 2 Docker helper runs Assignment 2, not this Assignment 3 evaluation. Run the commands below directly on Linux or WSL2 with the required kernel modules available.
+
+## 4. Run the Evaluation
 
 From the repository root:
 
@@ -83,26 +91,58 @@ From the repository root:
 python3 Assignment3/run_evaluation.py
 ```
 
-By default, this runs 3 repetitions across 3 destinations, with 10-second tests and 0.2-second sampling.
+The default configuration:
 
-Results and plots are saved to `Assignment3/output/evaluation/`.
+- Compares RLA, CUBIC, Reno, and BBR.
+- Tests 3 reachable destinations.
+- Performs 3 repetitions per algorithm and destination.
+- Runs each test for 10 seconds.
+- Samples TCP statistics every 0.2 seconds.
+- Automatically generates aggregate statistics and comparison plots after successful experiments.
 
-### Output
+Results are saved in `Assignment3/output/evaluation/`.
 
-- `trials.csv` — Individual test results
-- `aggregate.csv` — Throughput, RTT, and retransmission statistics
-- `comparison.pdf` — Comparison graphs
-- `manifest.json` — Experiment configuration
-- `run_01/` to `run_03/` — Raw measurements
+### Generated Outputs
+
+- `trials.csv` — Individual test results.
+- `aggregate.csv` — Goodput, RTT, and retransmission statistics.
+- `comparison.pdf` — Time-series and scatter plots comparing all four algorithms.
+- `manifest.json` — Experiment settings, test order, and execution details.
+- `run_01/` to `run_03/` — Raw measurements from each repetition.
+- `selection/` — Destination-selection measurements.
+
+### Custom Configuration
+
+To change the experiment settings:
+
+```bash
+python3 Assignment3/run_evaluation.py \
+  --destinations 3 \
+  --repetitions 3 \
+  --duration 10 \
+  --interval 0.2 \
+  --output Assignment3/output/custom_run
+```
 
 ### Regenerate Plots
 
-To regenerate plots without rerunning experiments:
+To regenerate plots and aggregate statistics without repeating the experiments:
 
 ```bash
-python3 Assignment3/plot_evaluation.py --output Assignment3/output/evaluation
+python3 Assignment3/plot_evaluation.py \
+  --output Assignment3/output/evaluation
 ```
 
-**Note:** To run another evaluation without overwriting existing results, specify a different directory using `--output`.
+**Note:** The runner does not overwrite existing experimental results. Use `--output` with a new directory when repeating experiments.
 
+Public iperf3 servers may be busy or unavailable. Failed or incomplete experiments may require a new run.
 
+Generated output files are excluded from Git tracking.
+
+## 5. Unload the Kernel Module
+
+After finishing the experiments:
+
+```bash
+sudo rmmod tcp_rla
+```

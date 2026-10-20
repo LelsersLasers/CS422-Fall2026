@@ -56,6 +56,25 @@ The evaluation compares RLA, CUBIC, Reno, and BBR using the TCP testing code fro
 
 Make sure all four algorithms are available and `matplotlib` is installed.
 
+For environment setup and Python dependencies, refer to the
+[Assignment 2 README](../Assignment2/README.md), including its
+Docker and requirements.txt instructions.
+
+Install the Python dependencies from the repository root:
+
+```bash
+python3 -m pip install -r Assignment2/requirements.txt
+```
+
+Make sure the RLA kernel module is loaded and all four algorithms are available:
+
+```bash
+cat /proc/sys/net/ipv4/tcp_available_congestion_control
+```
+
+The output should include `rla`, `cubic`, `reno`, and `bbr`.
+
+
 ### Run
 
 From the repository root:

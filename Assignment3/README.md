@@ -88,7 +88,7 @@ The evaluation uses the Linux kernel's TCP congestion-control implementations. T
 From the repository root:
 
 ```bash
-python3 Assignment3/run_evaluation.py
+python3 Assignment3/main.py
 ```
 
 The default configuration:
@@ -116,7 +116,7 @@ Results are saved in `Assignment3/output/evaluation/`.
 To change the experiment settings:
 
 ```bash
-python3 Assignment3/run_evaluation.py \
+python3 Assignment3/main.py \
   --destinations 3 \
   --repetitions 3 \
   --duration 10 \

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assignment 3 Option 1: repeated, matched TCP congestion-control trials.
 
-Run from any directory: python3 Assignment3/run_evaluation.py --repetitions 3
+Run from any directory: python3 Assignment3/main.py --repetitions 3
 Uses Assignment2's original iperf3-compatible TCP client and TCP_INFO collector.
 """
 import argparse

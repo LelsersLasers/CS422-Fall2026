@@ -83,6 +83,8 @@ output/            ALL intermediate data (CSV/JSON) and final graph PDFs
 
 ## 3a
 
+Writeup: [LaTeX](part3a-writeup.tex)/[PDF](part3a-writeup.pdf) (build with `make writeup-3a`). The summaries, manifests, failure logs, and plots used in it are in [part3a-results/](part3a-results/).
+
 Part 3 tests every destination Part 1 reached with CUBIC, Reno, and BBR,
 `--repetitions` times. Within a repetition each destination runs all three
 algorithms back to back, and the algorithm order rotates by one each

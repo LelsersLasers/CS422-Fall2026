@@ -1,0 +1,4 @@
+run_id,host,port,error
+b0a859eab634,iperf.online.net,5209,ProtocolError: Server busy / access denied (phase: PARAM_EXCHANGE after cookie)
+ce2c6427d116,ping-ams1.online.net,5203,TimeoutError: timed out
+b848d10f9826,speedtest.goco.ca,9229,ConnectionRefusedError: [Errno 111] Connection refused

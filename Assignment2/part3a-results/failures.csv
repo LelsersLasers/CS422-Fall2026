@@ -1,0 +1,6 @@
+repetition,requested_algorithm,attempt,run_id,host,port,error
+1,reno,0,1376ec51848b,speedtest.mia11.us.leaseweb.net,5202,ProtocolError: Server busy / access denied (phase: PARAM_EXCHANGE after cookie)
+1,reno,1,406d2eb77eea,speedtest.mia11.us.leaseweb.net,5202,ProtocolError: Server busy / access denied (phase: PARAM_EXCHANGE after cookie)
+2,reno,0,a41b819445b8,speedtest.mia11.us.leaseweb.net,5202,ProtocolError: Server busy / access denied (phase: PARAM_EXCHANGE after cookie)
+2,reno,1,336ed452de01,speedtest.mia11.us.leaseweb.net,5202,ProtocolError: Server busy / access denied (phase: PARAM_EXCHANGE after cookie)
+2,reno,2,5814a86615a4,speedtest.mia11.us.leaseweb.net,5202,ProtocolError: Server busy / access denied (phase: PARAM_EXCHANGE after cookie)

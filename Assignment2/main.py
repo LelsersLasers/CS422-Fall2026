@@ -14,15 +14,18 @@ graph PDFs are written to the `output/` subfolder:
         representative_samples.csv
         representative.json
         tcp_stats.pdf            (Part 2)
-        part3/                   (Part 3 data and PDFs)
+        part3/                   (Part 3 data)
             {cubic,reno,bbr}/{run_id}_samples.csv
             comparison_summary.csv
+            destination_algorithm_summary.csv
+            algorithm_summary.csv
+            failures.csv
             manifest.json
-            comparison.pdf
+        comparison.pdf           (Part 3)
 
 Usage (run from the Assignment2/ directory):
     python3 main.py
-    python3 main.py -n 10 -d 60 -i 1.0 --seed 42
+    python3 main.py -n 10 -d 60 -i 1.0 -r 3 --seed 42
 """
 
 import argparse
@@ -54,6 +57,11 @@ def main() -> int:
     parser.add_argument(
         '-i', '--interval', type=float, default=1.0,
         help='TCP stats sampling interval in seconds (default: 1.0)',
+    )
+    parser.add_argument(
+        '-r', '--repetitions', type=int, default=3,
+        help='Part 3 repetitions of every (destination, algorithm) test '
+             '(default: 3)',
     )
     parser.add_argument(
         '--timeout', type=float, default=15,
@@ -89,6 +97,8 @@ def main() -> int:
 
     if not (1 <= args.block_size <= 1_048_576):
         parser.error('block-size must be between 1 and 1048576 bytes')
+    if args.repetitions < 1:
+        parser.error('repetitions must be at least 1')
 
     args.output.mkdir(parents=True, exist_ok=True)
 
@@ -110,7 +120,7 @@ def main() -> int:
     # (OS default algorithm, exactly what Part 1 measured).
     run_part2(part1_dir=args.output, output_dir=args.output)
 
-    # Part 3: CUBIC / Reno / BBR comparison on the same destinations.
+    # Part 3: CUBIC / Reno / BBR comparison on Part 1's destinations.
     part3_dir = args.output / 'part3'
     run_part3(
         servers=args.servers,
@@ -122,6 +132,8 @@ def main() -> int:
         max_attempts=args.max_attempts,
         block_size=args.block_size,
         seed=args.seed,
+        repetitions=args.repetitions,
+        part1_dir=args.output,
     )
 
     # Render all PDFs into the same output directory.

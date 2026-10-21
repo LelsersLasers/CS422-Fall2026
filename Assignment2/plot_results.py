@@ -7,9 +7,11 @@ directory:
     output/tcp_stats.pdf     Part 2: representative destination time series
                              (snd cwnd, RTT, loss proxy, goodput) plus scatter
                              plots of cwnd/RTT/loss vs goodput.
-    output/comparison.pdf    Part 3: per-algorithm (CUBIC/Reno/BBR) time series
-                             and scatter plots for the same destination, with
-                             consistent axis scales across algorithms.
+    output/comparison.pdf    Part 3: CUBIC/Reno/BBR time series and scatter
+                             plots overlaid for Part 2's representative
+                             destination (plus per-algorithm pages), with
+                             consistent axis scales, and box plots of
+                             variability across runs and destinations.
 
 Usage:
     python3 plot_results.py
@@ -428,118 +430,281 @@ def plot_tcp_stats(
 # Part 3: algorithm comparison
 # ----------------------------------------------------------------------
 
+ALGO_ORDER = ('cubic', 'reno', 'bbr')
+
+# Fixed per-algorithm identity: color (colorblind-checked categorical
+# palette) plus a line style and marker, so curves stay distinguishable in
+# grayscale print.
+ALGO_STYLE = {
+    'cubic': {'color': '#2a78d6', 'linestyle': '-', 'marker': 'o'},
+    'reno': {'color': '#eb6834', 'linestyle': '--', 'marker': 's'},
+    'bbr': {'color': '#1baf7a', 'linestyle': ':', 'marker': '^'},
+}
+
+
+def _comparison_limits(traces: list[list[dict]]) -> tuple[dict, dict]:
+    """Common axis limits across all algorithms' traces."""
+    def peak(key, scale=1.0):
+        return max(
+            (v * scale for rows in traces for v in _col(rows, key)),
+            default=0,
+        )
+
+    loss = max(
+        (v for rows in traces for v in _col(rows, _loss_key(rows))),
+        default=0,
+    )
+    ylims = {
+        'snd_cwnd_segments': peak('snd_cwnd_segments') * 1.05,
+        'rtt_ms': max(peak('rtt_us', 1e-3), peak('rttvar_us', 1e-3)) * 1.05,
+        'loss_proxy': max(loss, 1) * 1.05,
+        'goodput_mbps': peak('goodput_mbps') * 1.05,
+    }
+    xlims = {
+        'snd_cwnd_segments': ylims['snd_cwnd_segments'],
+        'rtt_ms': peak('rtt_us', 1e-3) * 1.05,
+        'loss_proxy': ylims['loss_proxy'],
+    }
+    return xlims, ylims
+
+
+def _overlay_time_series_page(
+    first_runs: dict[str, list[dict]],
+    title: str,
+    xlim: tuple,
+    ylims: dict,
+) -> None:
+    """cwnd, RTT, loss proxy, and goodput over time, one curve per algo."""
+    panels = [
+        ('snd_cwnd_segments', 1.0, 'Congestion window', 'cwnd (segments)'),
+        ('rtt_us', 1e-3, 'Smoothed RTT', 'RTT (ms)'),
+        (None, 1.0, 'Retransmissions in interval', 'Retransmitted segments'),
+        ('goodput_mbps', 1.0, 'Acknowledged goodput', 'Goodput (Mbit/s)'),
+    ]
+    limit_keys = ['snd_cwnd_segments', 'rtt_ms', 'loss_proxy', 'goodput_mbps']
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 7))
+    for ax, (key, scale, panel_title, ylabel), limit_key in zip(
+        axes.flat, panels, limit_keys
+    ):
+        for algo in ALGO_ORDER:
+            rows = first_runs.get(algo)
+            if not rows:
+                continue
+            style = ALGO_STYLE[algo]
+            ys = [v * scale for v in _col(rows, key or _loss_key(rows))]
+            ax.plot(
+                _col(rows, 'elapsed_s'), ys,
+                color=style['color'], linestyle=style['linestyle'],
+                linewidth=1.5, label=algo,
+            )
+        ax.set(title=panel_title, xlabel='Elapsed time (s)', ylabel=ylabel)
+        ax.set_xlim(*xlim)
+        ax.set_ylim(bottom=0, top=ylims[limit_key] or None)
+        ax.grid(alpha=0.3)
+    axes[0, 0].legend(title='Algorithm')
+
+    fig.suptitle(title)
+    fig.tight_layout()
+
+
+def _overlay_scatter_page(
+    runs_by_algo: dict[str, list[list[dict]]],
+    title: str,
+    xlims: dict,
+    ylims: dict,
+) -> None:
+    """cwnd, RTT, and loss signal vs goodput; every run, colored by algo."""
+    panels = [
+        ('snd_cwnd_segments', 1.0, 'Congestion window (segments)',
+         'Congestion window vs goodput', 'snd_cwnd_segments'),
+        ('rtt_us', 1e-3, 'Smoothed RTT (ms)', 'RTT vs goodput', 'rtt_ms'),
+        (None, 1.0, 'Retransmissions in interval',
+         'Retransmissions vs goodput', 'loss_proxy'),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.5))
+    for ax, (key, scale, xlabel, panel_title, limit_key) in zip(axes, panels):
+        for algo in ALGO_ORDER:
+            style = ALGO_STYLE[algo]
+            xs, ys = [], []
+            for rows in runs_by_algo.get(algo, []):
+                xs += [v * scale for v in _col(rows, key or _loss_key(rows))]
+                ys += _col(rows, 'goodput_mbps')
+            if not xs:
+                continue
+            ax.scatter(
+                xs, ys, s=16, alpha=0.6, label=algo,
+                color=style['color'], marker=style['marker'],
+                edgecolors='white', linewidths=0.5,
+            )
+        ax.set(title=panel_title, xlabel=xlabel, ylabel='Goodput (Mbit/s)')
+        ax.set_xlim(left=0, right=xlims[limit_key] or None)
+        ax.set_ylim(bottom=0, top=ylims['goodput_mbps'] or None)
+        ax.grid(alpha=0.3)
+    axes[0].legend(title='Algorithm')
+
+    fig.suptitle(title)
+    fig.tight_layout()
+
+
+def _variability_page(summary_rows: list[dict]) -> None:
+    """Per-run results across all destinations and repetitions."""
+    panels = [
+        ('mean_mbps', 'Mean goodput per run', 'Goodput (Mbit/s)'),
+        ('mean_rtt_ms', 'Mean RTT per run', 'RTT (ms)'),
+        ('queueing_delay_ms', 'Queueing delay per run (mean RTT - min RTT)',
+         'Delay (ms)'),
+        ('retrans_pct', 'Retransmitted bytes per run', '% of bytes sent'),
+    ]
+    algos = [
+        a for a in ALGO_ORDER
+        if any(r['requested_algorithm'] == a for r in summary_rows)
+    ]
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 7))
+    for ax, (key, panel_title, ylabel) in zip(axes.flat, panels):
+        data = [
+            [float(r[key]) for r in summary_rows
+             if r['requested_algorithm'] == a and r.get(key) not in (None, '')]
+            for a in algos
+        ]
+        box = ax.boxplot(data, patch_artist=True, widths=0.5)
+        ax.set_xticks(range(1, len(algos) + 1), algos)
+        for patch, algo in zip(box['boxes'], algos):
+            patch.set_facecolor(ALGO_STYLE[algo]['color'])
+            patch.set_alpha(0.35)
+        for median in box['medians']:
+            median.set_color('black')
+        # Overlay each run so small sample counts stay visible.
+        for i, (values, algo) in enumerate(zip(data, algos), start=1):
+            ax.scatter(
+                [i] * len(values), values, s=14, zorder=3,
+                color=ALGO_STYLE[algo]['color'],
+                marker=ALGO_STYLE[algo]['marker'],
+                edgecolors='white', linewidths=0.5,
+            )
+        ax.set(title=panel_title, ylabel=ylabel)
+        ax.margins(y=0.1)
+        ax.set_ylim(bottom=0)
+        ax.grid(alpha=0.3, axis='y')
+
+    runs = len({r['repetition'] for r in summary_rows})
+    dests = len({(r['host'], r['port']) for r in summary_rows})
+    fig.suptitle(
+        f'Variability across runs: {dests} destination(s) x {runs} '
+        f'repetition(s), one point per test'
+    )
+    fig.tight_layout()
+
+
 def plot_comparison(
-    by_algo: dict[str, list[dict]],
+    runs_by_algo: dict[str, list[list[dict]]],
+    destination: str,
+    summary_rows: list[dict],
     outdir: Path,
 ) -> Path:
     """Generate CUBIC/Reno/BBR comparison plots.
 
-    All algorithms use common axis scales so differences can be visually
-    compared directly.
+    Pages:
+        1. Overlaid time series (cwnd, RTT, loss proxy, goodput) for the
+           representative destination, first repetition of each algorithm.
+        2. Overlaid scatter plots vs goodput, all repetitions at that
+           destination.
+        3+. The same two views per algorithm on separate pages.
+        Last. Variability across runs and destinations (box plots).
+
+    All algorithms share axis scales so differences can be compared directly.
+
+    Args:
+        runs_by_algo: algorithm -> list of sample traces (one per
+            repetition, in repetition order) at the representative
+            destination.
+        destination: "host:port" label of the representative destination.
+        summary_rows: Rows of part3/comparison_summary.csv.
     """
     outdir.mkdir(parents=True, exist_ok=True)
-
     output_path = outdir / 'comparison.pdf'
 
-    nonempty_runs = [
-        rows
-        for rows in by_algo.values()
-        if rows
-    ]
-
-    if not nonempty_runs:
+    all_traces = [t for traces in runs_by_algo.values() for t in traces]
+    if not all_traces:
         return output_path
 
-    # --------------------------------------------------------------
-    # Find common X/Y limits across all algorithms.
-    # --------------------------------------------------------------
-
-    max_elapsed = max(
-        max(_col(rows, 'elapsed_s'))
-        for rows in nonempty_runs
-    )
-
-    all_cwnd = [
-        value
-        for rows in nonempty_runs
-        for value in _col(rows, 'snd_cwnd_segments')
-    ]
-
-    all_rtt_ms = [
-        value / 1000.0
-        for rows in nonempty_runs
-        for value in _col(rows, 'rtt_us')
-    ]
-
-    all_rttvar_ms = [
-        value / 1000.0
-        for rows in nonempty_runs
-        if _has_column(rows, 'rttvar_us')
-        for value in _col(rows, 'rttvar_us')
-    ]
-
-    all_goodput = [
-        value
-        for rows in nonempty_runs
-        for value in _col(rows, 'goodput_mbps')
-    ]
-
-    all_loss = []
-
-    for rows in nonempty_runs:
-        loss_key = _loss_key(rows)
-        all_loss.extend(_col(rows, loss_key))
-
-    ylims = {
-        'snd_cwnd_segments': max(all_cwnd, default=0),
-        'rtt_ms': max(
-            all_rtt_ms + all_rttvar_ms,
-            default=0,
-        ),
-        'loss_proxy': max(all_loss, default=0),
-        'goodput_mbps': max(all_goodput, default=0),
-    }
-
-    xlims = {
-        'snd_cwnd_segments': max(all_cwnd, default=0),
-        'rtt_ms': max(all_rtt_ms, default=0),
-        'loss_proxy': max(all_loss, default=0),
-    }
-
-    # --------------------------------------------------------------
-    # Generate pages in fixed algorithm order.
-    # --------------------------------------------------------------
+    first_runs = {a: traces[0] for a, traces in runs_by_algo.items() if traces}
+    max_elapsed = max(max(_col(rows, 'elapsed_s')) for rows in all_traces)
+    xlims, ylims = _comparison_limits(all_traces)
 
     with PdfPages(output_path) as pdf:
-        for algo in ('cubic', 'reno', 'bbr'):
-            rows = by_algo.get(algo)
+        _overlay_time_series_page(
+            first_runs,
+            f'CUBIC vs Reno vs BBR: {destination} (repetition 1)',
+            (0, max_elapsed),
+            ylims,
+        )
+        pdf.savefig(plt.gcf())
+        plt.close('all')
 
+        reps = max(len(t) for t in runs_by_algo.values())
+        _overlay_scatter_page(
+            runs_by_algo,
+            f'CUBIC vs Reno vs BBR: {destination} '
+            f'(all {reps} repetition(s))',
+            xlims,
+            ylims,
+        )
+        pdf.savefig(plt.gcf())
+        plt.close('all')
+
+        for algo in ALGO_ORDER:
+            rows = first_runs.get(algo)
             if not rows:
                 continue
-
-            title = f"Congestion control: {algo}"
-
+            title = f'Congestion control: {algo} ({destination}, repetition 1)'
             _time_series_page(
-                rows,
-                title,
-                xlim=(0, max_elapsed),
-                ylims=ylims,
+                rows, title, xlim=(0, max_elapsed), ylims=ylims,
             )
-
             pdf.savefig(plt.gcf())
             plt.close('all')
 
-            _scatter_page(
-                rows,
-                title,
-                xlims=xlims,
-                ylims=ylims,
-            )
+            _scatter_page(rows, title, xlims=xlims, ylims=ylims)
+            pdf.savefig(plt.gcf())
+            plt.close('all')
 
+        if summary_rows:
+            _variability_page(summary_rows)
             pdf.savefig(plt.gcf())
             plt.close('all')
 
     return output_path
+
+
+def _part3_destination(
+    summary_rows: list[dict],
+    output_dir: Path,
+) -> tuple[str, str] | None:
+    """Representative destination for the Part 3 comparison.
+
+    Prefer Part 2's representative destination (so Parts 2 and 3 plot the
+    same path); otherwise the destination with the most successful tests
+    across the most algorithms.
+    """
+    covered: dict[tuple[str, str], set] = {}
+    counts: dict[tuple[str, str], int] = {}
+    for row in summary_rows:
+        key = (row['host'], str(row['port']))
+        covered.setdefault(key, set()).add(row['requested_algorithm'])
+        counts[key] = counts.get(key, 0) + 1
+    if not covered:
+        return None
+
+    rep_json = output_dir / 'representative.json'
+    if rep_json.exists():
+        rep = json.loads(rep_json.read_text())
+        key = (rep['host'], str(rep['port']))
+        if len(covered.get(key, ())) == max(len(a) for a in covered.values()):
+            return key
+
+    return max(covered, key=lambda k: (len(covered[k]), counts[k]))
 
 
 # ----------------------------------------------------------------------
@@ -634,75 +799,30 @@ def run_plot_results(
     )
 
     if comparison_summary.exists():
-        comparison_rows = _load_csv(
-            comparison_summary
+        comparison_rows = _load_csv(comparison_summary)
+        destination = _part3_destination(comparison_rows, output_dir)
+
+        # One trace per repetition, per algorithm, at that destination.
+        runs_by_algo: dict[str, list[list[dict]]] = {}
+        ordered = sorted(
+            comparison_rows, key=lambda r: int(r.get('repetition') or 0)
         )
-
-        by_dest: dict[
-            tuple[str, str],
-            dict[str, list[dict]],
-        ] = {}
-
-        for row in comparison_rows:
-            algo = row['requested_algorithm']
-
-            samples_path = (
-                part3_dir
-                / algo
-                / f"{row['run_id']}_samples.csv"
-            )
-
-            if not samples_path.exists():
+        for row in ordered:
+            if (row['host'], str(row['port'])) != destination:
                 continue
-
-            destination = (
-                row['host'],
-                row['port'],
-            )
-
-            by_dest.setdefault(
-                destination,
-                {},
-            ).setdefault(
-                algo,
-                [],
-            )
-
-            by_dest[destination][algo].extend(
-                _load_csv(samples_path)
-            )
-
-        if by_dest:
-
-            # Prefer a destination covered by the largest number of
-            # congestion-control algorithms.
-            def _score(item):
-                _, algorithms = item
-
-                means = [
-                    max(
-                        _col(
-                            rows,
-                            'goodput_mbps',
-                        )
-                    )
-                    for rows in algorithms.values()
-                    if rows
-                ]
-
-                return (
-                    len(algorithms),
-                    sum(means),
+            algo = row['requested_algorithm']
+            samples_path = part3_dir / algo / f"{row['run_id']}_samples.csv"
+            if samples_path.exists():
+                runs_by_algo.setdefault(algo, []).append(
+                    _load_csv(samples_path)
                 )
 
-            _, by_algo = max(
-                by_dest.items(),
-                key=_score,
-            )
-
+        if runs_by_algo:
             generated.append(
                 plot_comparison(
-                    by_algo,
+                    runs_by_algo,
+                    f'{destination[0]}:{destination[1]}',
+                    comparison_rows,
                     output_dir,
                 )
             )

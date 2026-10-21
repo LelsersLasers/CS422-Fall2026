@@ -21,7 +21,7 @@ python main.py
 python main.py -h
 
 usage: main.py [-h] [-n DESTINATIONS] [-d DURATION] [-i INTERVAL]
-               [--timeout TIMEOUT] [--max-attempts MAX_ATTEMPTS]
+               [-r REPETITIONS] [--timeout TIMEOUT] [--max-attempts MAX_ATTEMPTS]
                [--block-size BLOCK_SIZE] [--algorithm ALGORITHM]
                [--seed SEED] [--servers SERVERS] [--output OUTPUT]
 
@@ -37,6 +37,9 @@ options:
   -i, --interval INTERVAL
                         TCP stats sampling interval in seconds (default:
                         1.0)
+  -r, --repetitions REPETITIONS
+                        Part 3 repetitions of every (destination, algorithm)
+                        test (default: 3)
   --timeout TIMEOUT     Connection/read timeout in seconds (default: 15)
   --max-attempts MAX_ATTEMPTS
                         Maximum total test attempts per part (default: 30)
@@ -71,11 +74,42 @@ part1/             Part 1 — iPerf3 socket program + goodput measurement
 part2/             Part 2 — TCP stats tracing (post-processing of Part 1 output)
     run_tcp_stats.py   Picks the representative destination, emits its trace
 part3/             Part 3 — CUBIC / Reno / BBR comparison
-    run_algorithms.py  Selection pass + same-destination sweep passes
+    run_algorithms.py  Reuses Part 1's destinations; repeated, rotating-order
+                       sweeps; per-run RTT/queueing/loss/BDP summaries
 data/
     listed_iperf3_servers.json
 output/            ALL intermediate data (CSV/JSON) and final graph PDFs
 ```
+
+## 3a
+
+Part 3 tests every destination Part 1 reached with CUBIC, Reno, and BBR,
+`--repetitions` times. Within a repetition each destination runs all three
+algorithms back to back, and the algorithm order rotates by one each
+repetition (`cubic, reno, bbr` → `reno, bbr, cubic` → `bbr, cubic, reno`).
+The exact order is recorded in `output/part3/manifest.json`.
+
+Public iperf3 servers handle one client at a time and often refuse a new
+connection for a few seconds after a test ends, so Part 3 pauses 3 s before
+each test and retries a failed test up to twice (after 10 s, then 30 s).
+Every failed attempt is logged in `failures.csv`.
+
+Total Part 3 time ≈ `destinations × 3 × repetitions × (duration + setup)`,
+e.g. `-n 5 -d 60 -r 3` ≈ 50 minutes.
+
+Outputs in `output/part3/`:
+
+* `comparison_summary.csv`: one row per test (goodput min/median/mean/p95,
+  mean/p95/min RTT, queueing delay = mean RTT − min RTT, cwnd, retransmitted
+  segments and bytes %, BDP = median goodput × min RTT)
+* `destination_algorithm_summary.csv`: per destination and algorithm, mean
+  and standard deviation across repetitions
+* `algorithm_summary.csv`: per algorithm, across all tests
+* `failures.csv`: failed tests with their repetition and algorithm
+
+`output/comparison.pdf` overlays the three algorithms (time series and
+scatter plots, shared axes) for Part 2's representative destination, then
+repeats them per algorithm, and ends with box plots of run-to-run variability.
 
 ## Docker
 

@@ -1,0 +1,25 @@
+% Derived from archived comparison_summary.csv; rerun quantiles also use raw CSVs.
+\begin{table}[!htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Separate rerun: minimum, median, and p95 pool interval rates across the two runs; mean and sample SD summarize per-run means. RTT averages the per-run mean smoothed RTTs. All rates are Mbit/s.}
+\begin{tabular}{@{}llrrrrrrr@{}}
+\toprule
+Destination & Algo & Runs & Min & Median & Mean & SD & P95 & RTT (ms) \\
+\midrule
+LeaseWeb US & CUBIC & 2 & 0.00 & 198.84 & 189.39 & 38.06 & 299.83 & 61.8 \\
+LeaseWeb US & Reno & 2 & 0.00 & 217.52 & 208.16 & 64.68 & 324.25 & 73.7 \\
+LeaseWeb US & BBR & 2 & 0.00 & 199.74 & 189.20 & 27.77 & 298.35 & 55.8 \\
+Multinet24 PL & CUBIC & 2 & 0.00 & 116.30 & 98.12 & 4.56 & 185.75 & 141.0 \\
+Multinet24 PL & Reno & 2 & 0.00 & 162.87 & 151.76 & 6.72 & 192.56 & 136.4 \\
+Multinet24 PL & BBR & 2 & 0.00 & 157.44 & 146.96 & 1.63 & 180.87 & 138.6 \\
+Scaleway NL & CUBIC & 2 & 0.00 & 117.71 & 107.33 & 46.51 & 204.24 & 120.5 \\
+Scaleway NL & Reno & 2 & 0.00 & 202.74 & 190.67 & 14.60 & 225.33 & 110.3 \\
+Scaleway NL & BBR & 2 & 0.00 & 179.46 & 159.61 & 5.20 & 208.99 & 120.5 \\
+Mauritius Tel. & CUBIC & 2 & 0.00 & 9.81 & 24.78 & 0.85 & 91.11 & 305.4 \\
+Mauritius Tel. & Reno & 2 & 0.00 & 62.92 & 62.38 & 2.20 & 157.79 & 303.4 \\
+Mauritius Tel. & BBR & 2 & 0.00 & 60.60 & 62.35 & 1.18 & 178.03 & 294.5 \\
+\bottomrule
+\end{tabular}
+\end{table}

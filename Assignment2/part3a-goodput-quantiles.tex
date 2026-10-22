@@ -1,0 +1,28 @@
+% Derived from archived comparison_summary.csv; rerun quantiles also use raw CSVs.
+\begin{table}[!htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Earlier batch: minimum across per-run minima; median and p95 are means of per-run quantiles (not pooled quantiles); mean and sample SD summarize per-run means. Rates are Mbit/s. These statistics are reconstructible from the archived per-run summaries.}
+\begin{tabular}{@{}llrrrrrr@{}}
+\toprule
+Destination & Algo & Runs & Min & Median & Mean & SD & P95 \\
+\midrule
+LeaseWeb US & CUBIC & 3 & 4.02 & 96.63 & 93.25 & 1.43 & 133.79 \\
+LeaseWeb US & Reno & 2 & 2.91 & 83.83 & 85.74 & 3.69 & 131.50 \\
+LeaseWeb US & BBR & 3 & 0.26 & 141.02 & 144.54 & 11.92 & 278.66 \\
+Multinet24 PL & CUBIC & 3 & 0.33 & 43.11 & 41.49 & 3.91 & 65.31 \\
+Multinet24 PL & Reno & 3 & 0.43 & 34.94 & 36.03 & 2.11 & 61.12 \\
+Multinet24 PL & BBR & 3 & 0.00 & 46.48 & 63.29 & 5.29 & 128.62 \\
+Mauritius Tel. & CUBIC & 3 & 0.00 & 28.79 & 29.98 & 5.47 & 58.51 \\
+Mauritius Tel. & Reno & 3 & 0.00 & 20.31 & 20.21 & 2.46 & 32.47 \\
+Mauritius Tel. & BBR & 3 & 0.00 & 32.23 & 42.35 & 1.93 & 114.45 \\
+FortiSASE ES & CUBIC & 3 & 0.44 & 51.88 & 48.62 & 1.44 & 68.61 \\
+FortiSASE ES & Reno & 3 & 0.00 & 44.49 & 45.04 & 1.62 & 66.49 \\
+FortiSASE ES & BBR & 3 & 0.00 & 58.14 & 67.51 & 1.44 & 125.01 \\
+MilkyWan FR & CUBIC & 3 & 0.54 & 50.69 & 47.11 & 1.99 & 68.43 \\
+MilkyWan FR & Reno & 3 & 0.50 & 43.84 & 44.98 & 1.36 & 67.94 \\
+MilkyWan FR & BBR & 3 & 0.00 & 57.47 & 72.83 & 6.24 & 143.11 \\
+\bottomrule
+\end{tabular}
+\end{table}

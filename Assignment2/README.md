@@ -119,8 +119,12 @@ Run from `Assignment2/` on Linux or WSL2 (the helper also works from elsewhere):
 
 ```bash
 ./scripts/docker.sh build
-./scripts/docker.sh run -n 10 -d 60 -i 0.2 --seed 42
+./scripts/docker.sh run -n 10 -d 60 -i 0.2 -r 3 --algorithm cubic --seed 42
 ```
+
+This runs Parts 1-2 with CUBIC on 10 destinations for 60 seconds each,
+sampling every 0.2 seconds, then compares CUBIC, Reno, and BBR on the same
+destinations with three repetitions and rotating algorithm order.
 
 * The Ubuntu 24.04 image installs `requirements.txt` in a Python virtual environment and then runs `main.py`.
 * Results and PDFs persist in `output/`.

@@ -9,14 +9,11 @@
   breaklines=true,frame=single,showstringspaces=false}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.45em}
+\pagestyle{empty}
 \begin{document}
-\begin{center}
-{\Large Assignment 2, Part 3(b): RTT--Loss AIMD}\\[0.5em]
-{\small Ayusha Patra \quad Kabileswaran Krishna Kumar \quad
-Vihaan Kodeboyina \quad Millan Kumar}
-\end{center}
+\section*{3b) Our Congestion Control Algorithm}
 
-\section*{Idea and evidence}
+\subsection*{Idea and evidence}
 
 Our algorithm, RTT--Loss AIMD (RLA), grows the congestion window when the
 connection is using it well, backs off when RTT rises, and cuts back more
@@ -38,7 +35,7 @@ feedback to trigger stronger backoff, and acknowledged throughput to check
 whether the current window is being used effectively. They motivate RLA's
 design but do not establish its performance.
 
-\section*{Compared with Reno, CUBIC, and BBR}
+\subsection*{Compared with Reno, CUBIC, and BBR}
 
 \textbf{Reno} grows its window roughly one segment per RTT in congestion
 avoidance and halves it on loss. It is simple, but recovery can be slow on
@@ -56,7 +53,7 @@ RLA is simpler and uses throughput only to decide whether to grow; it may leave
 more bandwidth unused.
 
 \newpage
-\section*{How the window changes}
+\subsection*{How the window changes}
 
 \textbf{Starting up.} Keep Linux's initial window, normally ten segments, and
 use standard slow start: increase the window as packets are acknowledged.
@@ -87,7 +84,7 @@ window. Otherwise hold it steady. The gap between the RTT thresholds avoids
 switching between growth and backoff for every small RTT change. The
 throughput check avoids enlarging a window that is not being fully used.
 
-\section*{Terms}
+\subsection*{Terms}
 
 \begingroup
 \small
@@ -114,7 +111,7 @@ AIMD & Additive increase, multiplicative decrease: grow by a fixed amount and ba
 \small
 \setlength{\parskip}{0.3em}
 \lstset{basicstyle=\ttfamily\footnotesize}
-\section*{Pseudocode}
+\subsection*{Pseudocode}
 
 \begin{lstlisting}
 Start with Linux's initial cwnd and slow-start threshold.
@@ -155,7 +152,7 @@ is gentler than the loss response, and the 80\% utilization check discourages
 growth when the old window is underused. These are heuristic choices, not
 values optimized or validated by our experiments.
 
-\section*{Fairness, stability, and limitations}
+\subsection*{Fairness, stability, and limitations}
 
 \textbf{Fairness.} With similar RTTs and packet sizes, flows eligible for
 the same additive increases and experiencing congestion together should tend

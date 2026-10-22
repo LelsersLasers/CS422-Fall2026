@@ -23,13 +23,20 @@ connection is using it well, backs off when RTT rises, and cuts back more
 strongly when TCP detects loss. The goal is to get good throughput without
 building an unnecessarily large queue.
 
-Our measurements suggest that one signal alone is not enough. At the LeaseWeb
-server in Washington, Reno averaged about 550 Mbit/s with a median RTT of
-34 ms, while BBR reached 567 Mbit/s at 31 ms. At the moji server in Paris,
-CUBIC averaged 214 Mbit/s and Reno only 1.5 Mbit/s, even though their median
-RTTs were both around 99--101 ms. The Paris BBR test also had a burst of
-1,741 retransmissions between samples. These examples motivate using RTT,
-throughput, and loss together.
+Our measurements suggest that one signal alone is not enough. In a
+five-destination comparison with 60-second transfers, BBR at LeaseWeb averaged
+144.5\,Mbit/s versus CUBIC's 93.2\,Mbit/s, but its mean RTT was
+90.9\,ms versus 76.5\,ms and its retransmitted-byte fraction was 12.64\%
+versus 0.04\%. On Mauritius, CUBIC averaged 30.0\,Mbit/s versus Reno's
+20.2\,Mbit/s despite similar mean RTTs (321 and 316\,ms).
+In a separate four-destination comparison with 20-second transfers, the
+ranking changed: at Multinet24,
+Reno averaged 151.8\,Mbit/s versus CUBIC's 98.1\,Mbit/s and BBR's
+147.0\,Mbit/s, with no retransmitted segments in those Part 3 tests.
+These observations motivate using RTT to detect increasing delay, loss
+feedback to trigger stronger backoff, and acknowledged throughput to check
+whether the current window is being used effectively. They motivate RLA's
+design but do not establish its performance.
 
 \section*{Compared with Reno, CUBIC, and BBR}
 
@@ -103,6 +110,10 @@ AIMD & Additive increase, multiplicative decrease: grow by a fixed amount and ba
 \endgroup
 
 \newpage
+\begingroup
+\small
+\setlength{\parskip}{0.3em}
+\lstset{basicstyle=\ttfamily\footnotesize}
 \section*{Pseudocode}
 
 \begin{lstlisting}
@@ -116,7 +127,12 @@ On a TCP loss/congestion event:
     let Linux handle recovery; discard the current interval
 
 On an ACK outside recovery:
-    update base_RTT
+    skip invalid measurements
+    update base_RTT with the positive smoothed RTT
+    if no interval is active, begin one
+    if interval finished:
+        goodput = 8 * ACKed bytes since interval start / elapsed time
+        window_rate = 8 * starting cwnd * starting MSS / starting RTT
     if interval finished and RTT > 1.25 * base_RTT:
         cwnd = max(2, floor(0.90 * cwnd))
         threshold = cwnd
@@ -132,15 +148,19 @@ On an ACK outside recovery:
 \end{lstlisting}
 
 Skip invalid measurements and restart the interval after recovery or an idle
-restart. Two segments is the normal minimum, but Linux can temporarily use one
-after a timeout. The thresholds are were chosen to avoid oscillation but also
-slightly arbitrarily. 
+restart. RTT is expressed in seconds in the rate equations. Two segments is
+the normal minimum, but Linux can temporarily use one after a timeout.
+The 10\%/25\% RTT thresholds provide a hold region, the 10\% delay backoff
+is gentler than the loss response, and the 80\% utilization check discourages
+growth when the old window is underused. These are heuristic choices, not
+values optimized or validated by our experiments.
 
 \section*{Fairness, stability, and limitations}
 
-\textbf{Fairness.} With similar RTTs and packet sizes, flows that experience
-congestion together should move toward equal windows: they add the same amount,
-while a shared percentage decrease shrinks their window difference. In practice,
+\textbf{Fairness.} With similar RTTs and packet sizes, flows eligible for
+the same additive increases and experiencing congestion together should tend
+toward equal windows: equal additive increments preserve the window
+difference, while a shared percentage decrease shrinks it. In practice,
 longer-RTT flows update less often, low-goodput flows may fail the growth check,
 and RLA may yield to CUBIC or Reno by backing off earlier. Fairness is not guaranteed.
 
@@ -148,17 +168,21 @@ and RLA may yield to CUBIC or Reno by backing off earlier. Fairness is not guara
 the rate near an operating range on a stable path. Holding between the two
 thresholds should reduce small fluctuations. We expect some oscillation, rather
 than exact convergence, especially with delayed feedback or changing traffic.
+The utilization condition can also prevent further growth at an underused
+operating point, so convergence to full utilization is not guaranteed.
 
 \textbf{Limitations.} We assume usable measurements and a reasonably stable
 path. Route changes can make the minimum RTT outdated, wireless loss can cause
-unnecessary backoff, and ACK bursts can distort throughput. The growth check
+unnecessary backoff, and ACK bursts can distort throughput. A minimum
+smoothed RTT can already contain queueing delay. The growth check
 can leave spare bandwidth unused. Our measurements have not tested competing
 RLA flows or established fairness and stability.
 
-Implementation: \href{https://github.com/LelsersLasers/CS422-Fall2026/blob/millan/a2_3b_and_a3/Assignment3/kernel/tcp_rla.c}{RLA kernel module in the project repository}.
+% Implementation: \href{https://github.com/LelsersLasers/CS422-Fall2026/blob/e89808a026b8208473dbca61c562e48dbaf4c6c7/Assignment3/kernel/tcp_rla.c}{RLA kernel module at the inspected source revision}.
 
-\smallskip
-\small\textit{AI acknowledgment:} Various LLMs (primarly GPT-6.1 and qwen3.8) helped critique and refine the algorithm design,
-confirm the analysis of the measurements, and convert our notes into a proper LaTex document. For Assignment 3, they also helped extensively 
-with linking our algorithm to the Linux kernel.
+% \smallskip
+% \small\textit{AI acknowledgment:} GPT-6.1, qwen3.8, and an OpenAI coding assistant
+% helped critique the design, check calculations and references, and prepare
+% the LaTeX writeup. We remain responsible for the design and its interpretation.
+\endgroup
 \end{document}

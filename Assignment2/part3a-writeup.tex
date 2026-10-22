@@ -27,12 +27,16 @@ Vihaan Kodeboyina \quad Millan Kumar}
 \section*{Summary}
 
 Across five public iperf3 servers and three repetitions, \textbf{BBR had the
-highest goodput in all 15 comparisons} (78.1\,Mbit/s mean vs.\ 52.1 for CUBIC
-and 43.6 for Reno), but added 12--19\,ms of queueing delay and retransmitted
-about 11\% of its bytes. CUBIC beat Reno in 13 of 14 comparisons, by more on
-longer paths. The paths were \emph{loss-limited}: sparse losses kept CUBIC and
-Reno at a roughly constant window, while BBR, which ignores loss, was not
-limited this way.
+highest per-run mean goodput in all 15 destination--repetition comparisons}
+(78.1\,Mbit/s mean vs.\ 52.1 for CUBIC and 43.6 for Reno). These overall
+means average successful tests; Reno has one fewer test, so the paired
+comparisons are more informative. BBR's destination-level mean RTT was
+8.7--14.4\,ms above CUBIC and 10.4--19.3\,ms above Reno; its retransmitted-byte
+fraction averaged about 11\%. CUBIC beat Reno in 13 of 14 matched comparisons.
+The traces are consistent with loss/recovery limiting CUBIC and Reno, but do
+not establish the sole bottleneck. A separate, shorter Docker rerun reported
+below changes the rankings, illustrating the limits of generalizing from
+these public paths.
 
 \section*{Setup}
 
@@ -60,9 +64,15 @@ twice. One test (Reno, repetition 3, LeaseWeb) was refused every time, so
 \texttt{getsockopt}.
 
 \textbf{Metrics} (all from TCP\_INFO on the data socket): goodput from
-$\Delta$\texttt{bytes\_acked}; smoothed RTT; queueing delay $=$ mean RTT
-$-$ \texttt{min\_rtt}; loss proxy $=$ retransmitted bytes / bytes sent, and
-retransmissions per interval in the plots.
+$8\Delta\texttt{bytes\_acked}/\Delta t$, using actual elapsed sampling time;
+smoothed RTT; excess-delay proxy $=$ mean RTT $-$ \texttt{min\_rtt}; and loss
+proxy $=$ retransmitted bytes / TCP bytes sent. The plots use retransmitted
+segments per interval. Retransmissions are not a direct packet-loss
+probability, and excess RTT does not isolate router queueing from wireless,
+host, or VM effects. Goodput summaries are arithmetic means of sampled rates;
+SD is the sample standard deviation of the per-run means. The minimum RTTs
+in destination labels describe representative path baselines, not identical
+RTTs in every algorithm/run.
 
 \section*{Results}
 
@@ -74,7 +84,7 @@ repetitions, and means of the other metrics.}
 \label{tab:dest}
 \begin{tabular}{@{}llrrrrr@{}}
 \toprule
-Destination & Algo & Goodput & RTT & Queueing & Retrans. & cwnd \\
+Destination & Algo & Goodput & RTT & Excess delay & Retrans. & cwnd \\
 (min RTT) & & (Mbit/s) & (ms) & (ms) & bytes & (segments) \\
 \midrule
 LeaseWeb US & CUBIC & 93.2 $\pm$ 1.4 & 77 & 28.7 & 0.04\% & 601 \\
@@ -100,8 +110,13 @@ Mauritius Tel. & CUBIC & 30.0 $\pm$ 5.5 & 321 & 27.8 & 0.51\% & 834 \\
 \end{tabular}
 \end{table}
 
+\input{part3a-goodput-quantiles.tex}
+
 The plots use \texttt{148.230.45.213:30009}, the representative destination
-from Question 2, with shared axis scales for all three algorithms.
+selected from Part 1 of this five-destination batch, with shared axis scales
+for all three algorithms. The combined report's earlier Question 2 figures
+use a separate ten-destination batch and \texttt{iperf.online.net:5209}; they
+must not be interpreted as the same run.
 
 \begin{figure}[!htbp]
 \centering
@@ -127,49 +142,61 @@ all three repetitions).}
 
 \section*{Analysis}
 
-\textbf{Traces (Figure~\ref{fig:ts}).} Reno grows its window by about one
-segment per RTT and halves it on loss (one loss in about 40\,s here). CUBIC
-shows its cubic sawtooth, dropping to 70\% and regrowing within seconds. BBR
-keeps a 1,300--3,300 segment window and dips almost to zero at about 12, 31,
-and 48\,s; these are its ProbeRTT phases. BBR is the only algorithm with
-sustained retransmissions (Figure~\ref{fig:scatter}).
+\textbf{Traces (Figure~\ref{fig:ts}).} After startup, Reno grows gradually
+and shows a marked window reduction near 40\,s. CUBIC repeatedly reduces and
+regrows its window. Reno normally adds approximately one segment per RTT
+in congestion avoidance and targets a half-window threshold on a loss event;
+CUBIC uses time-based growth and a nominal 0.7 decrease factor. Neither
+reduces independently for every retransmitted packet in a burst. BBR uses a
+larger window and has repeated brief dips near 12, 31, and 48\,s, consistent
+with ProbeRTT behavior; we did not log its internal mode to confirm this.
+Its sustained retransmission activity is visible in Figure~\ref{fig:scatter}.
 
-\textbf{Operating regime: loss-limited.} On the four paths from 48 to
-130\,ms, CUBIC and Reno kept nearly the same mean window (530--610 segments),
-so goodput $\approx$ cwnd/RTT fell roughly as $1/\text{RTT}$. A capacity
-limit would instead make the window track each path's BDP. A constant window
-matches the AIMD throughput model, cwnd $\approx 1.22/\sqrt{p}$: Reno's one
-loss per $\sim$155{,}000 segments ($p\approx 6\times10^{-6}$) predicts about
-480 segments, close to the 530--565 measured. BBR does not back off on loss,
-so these sparse losses did not limit it.
+\textbf{Operating regime.} On the four paths with baseline RTTs of
+48--130\,ms, CUBIC and Reno averaged roughly 530--610 segments. When
+congestion-window limited, the approximate supported rate is
+$8\,cwnd\,MSS/RTT$, with RTT in seconds and MSS in bytes. A similar window
+therefore supports less throughput at larger RTT. Window reductions and
+slow recovery are consistent with loss/recovery limitations. However,
+receiver windows, pacing, server load, and changing capacity can also limit
+goodput; retransmissions alone do not establish a congestion-loss rate or
+prove the bottleneck. BBRv1 primarily models delivery bandwidth and minimum
+RTT rather than applying Reno-style loss-driven growth, but still handles
+loss recovery and can respond to a detected policer.
 
 \textbf{Which algorithm is better where.}
 \begin{itemize}
 \item \textbf{Throughput: BBR}, by 1.5--1.8$\times$ Reno on the
   48--130\,ms paths and 2.1$\times$ at 288\,ms. On a long path, a loss-based
-  algorithm needs more round trips to regrow after each backoff. BBR suits
-  bulk transfer on high-BDP paths with sparse non-congestive loss.
+  algorithm needs more time to regrow a large window after backoff. This
+  supports BBR for bulk throughput on these tested paths; it does not
+  establish that their losses were non-congestive or that BBR wins generally.
 \item \textbf{CUBIC vs.\ Reno: CUBIC on high-BDP paths.} The gap was
   1.05--1.15$\times$ up to 130\,ms but 1.48$\times$ at 288\,ms (window 834
   vs.\ 565). CUBIC backs off less (to 70\%, not 50\%), and its growth depends
   on time since the last loss rather than on RTT, whereas Reno would need
   over 2 minutes to regrow 500 segments at 288\,ms.
-\item \textbf{Delay and loss: CUBIC and Reno.} Both had about 22--28\,ms of
-  queueing delay on every path. Because this floor is the same everywhere,
-  it is probably jitter from our Wi-Fi and VM networking. BBR added 12--19\,ms
-  above it and retransmitted 7--16\% of its bytes: BBRv1 keeps up to
-  2$\times$ the estimated BDP in flight and probes at 1.25$\times$ its
-  bandwidth estimate, so it repeatedly overfills the bottleneck buffer.
+\item \textbf{Delay and retransmissions: CUBIC and Reno.} Their grouped
+  excess-delay proxies were about 22--29\,ms. BBR had greater mean RTT on
+  all five destinations. Retransmitted-byte percentages were
+  0.04--0.52\% for CUBIC, 0.36--1.01\% for Reno, and 7.39--15.51\% for BBR.
+  BBRv1's probing and larger window targets are consistent with these
+  observations, but cwnd is a limit, not the measured bytes in flight, and
+  we did not measure bottleneck buffer occupancy.
 \item \textbf{BDP.} The BDP implied by achieved goodput is about
-  0.5--0.9\,MB on the shorter paths and up to 1.5\,MB at 288\,ms. CUBIC and
-  Reno's $\sim$0.8\,MB windows are near it on short paths but well below it on
-  the long one, where they trail BBR most. BBR's 2.8--4.6\,MB windows exceed
-  the BDP, and the excess becomes queueing delay and loss.
+  0.5--0.9\,MB on the shorter paths and up to 1.5\,MB in an individual
+  long-path run. The code computes median achieved goodput times minimum
+  RTT, divided by eight for bytes. This is a goodput-based BDP proxy, not
+  independently measured capacity BDP. Converting cwnd to bytes requires
+  the recorded MSS. Thus the observed window differences support a
+  throughput/RTT interpretation but do not prove underfilling or buffer
+  overflow relative to the true path BDP.
 \end{itemize}
 
-We did not observe a deep-buffer regime, where BBR should have the
-\emph{lower} RTT, or a short uncongested path, where all three should reach
-link capacity.
+We did not control buffer depth, capacity, or background traffic, so these
+tests do not isolate deep-buffer or uncongested-capacity regimes. BBR can
+have lower delay in other conditions; the separate rerun below demonstrates
+that the ranking is sensitive to the measurement setting.
 
 \textbf{Variability.} On the same destination, results were consistent:
 the coefficient of variation of per-run goodput was 1.5--9.4\% for 13 of 15
@@ -182,10 +209,64 @@ test order: BBR was fastest in all 15 groups, and CUBIC beat Reno in 13 of 14
 \textbf{Limitations.} Public paths change between tests, and three
 repetitions is a small sample. We tested one flow at a time, so we could not
 measure fairness or BBR's effect on competing flows. The bottleneck location
-and buffer size are unknown, and our VM on Wi-Fi adds jitter. BDP is a lower
-bound because true capacity is unknown. TCP\_INFO sampling every 0.2\,s
-averages short bursts. Results apply to BBRv1 only; later versions react to
-loss.
+and buffer size are unknown, and our VM on Wi-Fi can add jitter. True
+capacity BDP is unknown. TCP\_INFO sampling every 0.2\,s averages short
+bursts. These measurements use BBRv1; its loss behavior and results must not
+be generalized to other BBR versions. The original archive contains
+per-run summaries and plotted traces, but not the original interval CSVs;
+its pooled quantiles cannot be independently reconstructed from summaries.
+
+\clearpage
+\section*{Separate Docker rerun: four destinations, two repetitions}
+
+On October 21, the full pipeline was rerun with:
+\begin{lstlisting}
+./scripts/docker.sh run -n 4 -d 20 -i 0.1 -r 2 --algorithm cubic --seed 42
+\end{lstlisting}
+The manifests record Linux \texttt{6.18.50}; the representative metadata
+records x86\_64 and little-endian TCP\_INFO decoding. Part 1 completed 4/4
+destinations in five attempts after \texttt{iperf.online.net:5209} refused
+negotiation. Part 3 reused those four host/port pairs, used 20\,s transfers
+and 0.1\,s sampling for every algorithm, and completed 24/24 tests, with no
+skipped algorithms or failed Part 3 attempts. Its two orders were
+CUBIC--Reno--BBR and Reno--BBR--CUBIC. Full raw traces, server results,
+inputs, metadata, and PDFs are preserved in \texttt{rerun-results/}.
+
+\input{rerun-results/goodput-table.tex}
+
+Reno had the largest mean of per-run goodputs on all four destinations,
+although its Mauritius result was effectively tied with BBR
+(62.38 vs.\ 62.35\,Mbit/s). BBR had lower grouped mean RTT than both other
+algorithms on LeaseWeb and Mauritius; on Multinet24, Reno had the lowest
+mean RTT. On the representative Multinet24 path, all six Part 3 tests
+recorded zero retransmitted segments. CUBIC averaged about 1,424 segments,
+Reno 4,019, and BBR 5,611, with mean RTTs of 141.0, 136.4, and 138.6\,ms.
+This illustrates why a larger cwnd alone need not imply higher goodput:
+pacing, actual flight size, startup, and other limits also matter.
+
+Most rerun tests had no retransmissions, so a universal loss-limited
+interpretation would be unsupported. Within-destination goodput
+coefficients of variation ranged from 1.1\% to 43.3\% across the two
+repetitions. Two short tests are insufficient to establish steady-state
+behavior or a reliable universal ranking. Host/kernel, duration, sampling,
+destinations, and measurement time differ from the earlier batch; we cannot
+attribute the ranking change to any one factor. Both batches support the
+need to discuss variability and qualify operating-regime claims.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[page=1,width=\textwidth]{rerun-results/comparison.pdf}
+\caption{Separate rerun: shared-scale time series at
+\texttt{speedsrv.multinet24.pl:5307}, repetition 1.}
+\end{figure}
+\begin{figure}[!htbp]
+\centering
+\includegraphics[page=2,width=\textwidth]{rerun-results/comparison.pdf}
+\caption{Separate rerun: cwnd, RTT, and interval retransmissions against
+goodput, both repetitions at the same representative destination.}
+\end{figure}
+
+\clearpage
 
 \section*{Reproduction and code}
 
@@ -195,8 +276,11 @@ From \texttt{Assignment2/} on Linux with \texttt{reno cubic bbr} available:
 python3 main.py -n 5 -d 60 -i 0.2 -r 3 --seed 42
 \end{lstlisting}
 
-Raw traces go to \texttt{output/part3/}. The summaries, logs, and plots used
-here are in \texttt{Assignment2/part3a-results/}.
+Raw traces go to \texttt{output/part3/}. Earlier-batch summaries, logs, and
+plots are in \texttt{Assignment2/part3a-results/}; the separate rerun's
+complete measurements are in \texttt{Assignment2/rerun-results/}. The
+implementation cited below is byte-for-byte unchanged in the inspected
+rebased checkout at \texttt{e89808a}.
 
 \begin{itemize}
 \item Experiment loop (Part 1 destinations, rotating order, retries):
@@ -206,7 +290,7 @@ here are in \texttt{Assignment2/part3a-results/}.
   CLI options:
   \href{\repo/main.py\#L45-L96}{\texttt{main.py} L45--96}.
 \item Algorithm selection and check:
-  \href{\repo/part1/run_test.py\#L150-L170}{\texttt{run\_test.py} L150--170};
+  \href{\repo/part1/run_test.py\#L151-L171}{\texttt{run\_test.py} L151--171};
   goodput and loss proxy:
   \href{\repo/part1/tcp_stats.py\#L161-L257}{\texttt{compute\_sample}}.
 \item Plots:
@@ -220,5 +304,7 @@ We used Claude Code (Anthropic) to help set up the Linux VM, implement the
 Part 3 changes, and draft this writeup from our measurement files. We
 reviewed the code, tested it with short runs before the full experiment, and
 checked the numbers against \texttt{part3a-results/}.
+An OpenAI coding assistant also helped recheck references and calculations,
+qualify the interpretations, and prepare the separate rerun comparison.
 
 \end{document}

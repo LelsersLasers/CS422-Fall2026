@@ -1,5 +1,6 @@
 
 import numpy as np
+from validation import validate_topology, validate_flows
 
 from traffic_matrices import (
     uniform_traffic,
@@ -109,3 +110,72 @@ def test_wrong_matrix_size():
     matrix = np.zeros((7, 7))
 
     assert not validate_topology(matrix)
+
+
+def test_valid_flow():
+    # Traffic from node 0 to node 1 uses a real link
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][1] = 0.5
+
+    flows = {(0, 1, 0, 1): 0.5}
+
+    assert validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_flow_capacity_exceeded():
+    # One link cannot carry more than 1 unit
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][1] = 1.2
+
+    flows = {(0, 1, 0, 1): 1.2}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_flow_on_missing_link():
+    # Node 0 has no direct link to node 7 in our example
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][7] = 0.5
+
+    flows = {(0, 7, 0, 7): 0.5}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_broken_flow_conservation():
+    # Traffic enters node 1 but never reaches node 2
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][2] = 0.5
+
+    flows = {(0, 2, 0, 1): 0.5}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_valid_two_hop_flow():
+    # Traffic goes from node 0 to node 2 through node 1
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][2] = 0.5
+
+    flows = {
+        (0, 2, 0, 1): 0.5,
+        (0, 2, 1, 2): 0.5
+    }
+
+    assert validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_unsatisfied_demand():
+    # The source sends less than the requested traffic
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][1] = 0.5
+
+    flows = {(0, 1, 0, 1): 0.2}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)

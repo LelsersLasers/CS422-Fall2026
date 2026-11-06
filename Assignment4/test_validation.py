@@ -179,3 +179,95 @@ def test_unsatisfied_demand():
     flows = {(0, 1, 0, 1): 0.2}
 
     assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_zero_traffic():
+    # No traffic means no flow is needed
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    flows = {}
+
+    assert validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_negative_flow():
+    # Traffic cannot have a negative value
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][1] = 0.5
+
+    flows = {(0, 1, 0, 1): -0.5}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_negative_theta():
+    # The concurrent flow value cannot be negative
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    flows = {}
+
+    assert not validate_flows(topology, traffic, flows, theta=-1)
+
+
+def test_invalid_flow_number():
+    # NaN is not a real traffic amount, so reject it
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+
+    flows = {(0, 1, 0, 1): np.nan}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_invalid_theta():
+    # Gurobi should return a finite value for theta
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    flows = {}
+
+    assert not validate_flows(topology, traffic, flows, theta=np.inf)
+
+
+def test_shared_link_capacity():
+    # Two traffic demands share the same link
+    # Their combined traffic cannot exceed capacity 1
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+
+    traffic[0][1] = 0.6
+    traffic[0][2] = 0.6
+
+    flows = {
+        (0, 1, 0, 1): 0.6,
+        (0, 2, 0, 1): 0.6,
+        (0, 2, 1, 2): 0.6
+    }
+
+    # Link 0 -> 1 carries 1.2 units, which is too much
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_invalid_topology_with_flow():
+    # Even valid traffic cannot fix an invalid topology
+    topology = make_valid_topology()
+    topology[0][1] = 0
+
+    traffic = np.zeros((8, 8))
+    traffic[0][1] = 0.5
+
+    flows = {(0, 1, 0, 1): 0.5}
+
+    assert not validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_small_rounding_error():
+    # Gurobi uses floating-point numbers
+    # Tiny rounding differences should be okay
+    topology = make_valid_topology()
+    traffic = np.zeros((8, 8))
+    traffic[0][1] = 1.0
+
+    flows = {(0, 1, 0, 1): 1.0000001}
+
+    assert validate_flows(topology, traffic, flows, theta=1)

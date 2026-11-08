@@ -8,7 +8,6 @@ from traffic_matrices import (
     sparse_traffic,
     validate_traffic_matrix
 )
-from validation import validate_topology
 
 
 def test_uniform_traffic():

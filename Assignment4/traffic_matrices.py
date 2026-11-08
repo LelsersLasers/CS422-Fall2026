@@ -48,32 +48,42 @@ def sparse_traffic(n=8, d=4):
 
 
 
+
 def validate_traffic_matrix(matrix, n=8, d=4):
     """Check if the matrix follows the assignment's traffic rules."""
 
+    matrix = np.asarray(matrix, dtype=float)
+
+    # Small rounding differences are okay
+    tolerance = 1e-6
+
     # Rule 1: Matrix must have n rows and n columns
-    correct_size = matrix.shape == (n, n)
+    if matrix.shape != (n, n):
+        return False
 
-    # Rule 2: Traffic cannot be negative
-    no_negative_traffic = np.all(matrix >= 0)
+    # Rule 2: Reject NaN and infinity
+    if not np.all(np.isfinite(matrix)):
+        return False
 
-    # Rule 3: Nodes cannot send traffic to themselves
-    no_self_traffic = np.all(np.diag(matrix) == 0)
+    # Rule 3: Traffic cannot be negative
+    if np.any(matrix < -tolerance):
+        return False
 
-    # Rule 4: Each node can send at most d units
-    outgoing_valid = np.all(matrix.sum(axis=1) <= d)
+    # Rule 4: Nodes shouldn't send traffic to themselves
+    if not np.all(np.abs(np.diag(matrix)) <= tolerance):
+        return False
 
-    # Rule 5: Each node can receive at most d units
-    incoming_valid = np.all(matrix.sum(axis=0) <= d)
+    # Rule 5: Each node can send at most d units
+    if np.any(matrix.sum(axis=1) > d + tolerance):
+        return False
 
-    # All five rules must pass
-    return (
-        correct_size
-        and no_negative_traffic
-        and no_self_traffic
-        and outgoing_valid
-        and incoming_valid
-    )
+    # Rule 6: Each node can receive at most d units
+    if np.any(matrix.sum(axis=0) > d + tolerance):
+        return False
+
+    # All checks passed
+    return True
+
 
 
 if __name__ == "__main__":

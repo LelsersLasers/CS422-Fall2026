@@ -270,3 +270,34 @@ def test_small_rounding_error():
     flows = {(0, 1, 0, 1): 1.0000001}
 
     assert validate_flows(topology, traffic, flows, theta=1)
+
+
+def test_nan_traffic():
+    # NaN isn't a valid traffic amount
+    matrix = uniform_traffic()
+    matrix[0][1] = np.nan
+
+    assert not validate_traffic_matrix(matrix)
+
+
+def test_infinite_traffic():
+    # Infinity isn't a valid traffic amount either
+    matrix = uniform_traffic()
+    matrix[0][1] = np.inf
+
+    assert not validate_traffic_matrix(matrix)
+
+
+def test_small_traffic_rounding_error():
+    # Tiny rounding errors shouldn't fail validation
+    matrix = uniform_traffic()
+    matrix[0][0] = 1e-8
+
+    assert validate_traffic_matrix(matrix)
+
+
+def test_wrong_traffic_matrix_size():
+    # We need an 8x8 matrix (for this assignment atleast)
+    matrix = np.zeros((7, 7))
+
+    assert not validate_traffic_matrix(matrix)

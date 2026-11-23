@@ -1,9 +1,8 @@
-"""Worker CLI runner and algorithm registry (Member 4 owns integration after setup)."""
-
-from __future__ import annotations
+"""Worker CLI runner and algorithm registry (Member 4 owns integration)."""
 
 import argparse
-from collections.abc import Sequence
+
+import torch.distributed as dist
 
 from src.allgather_recursive import allgather_recursive
 from src.allgather_ring import allgather_ring
@@ -11,142 +10,64 @@ from src.allgather_swing import allgather_swing
 from src.benchmark import run_benchmark
 from src.broadcast_binary import broadcast_binary
 from src.broadcast_binomial import broadcast_binomial
-from src.common import (
-    AllGatherFn,
-    BroadcastFn,
-    DEFAULT_ROOT,
-    distributed_context,
-    make_rank_buffer,
-    rank0_print,
-    run_p2p_smoke_test,
-)
-from src.correctness import run_verification_suite, verify_allgather, verify_broadcast
+from src.common import make_rank_buffer, p2p_smoke_test
+from src.correctness import run_verification_suite
 
-ALLGATHER_ALGORITHMS: dict[str, AllGatherFn] = {
+ALLGATHER = {
     "ring": allgather_ring,
     "recursive": allgather_recursive,
     "swing": allgather_swing,
 }
 
-BROADCAST_ALGORITHMS: dict[str, BroadcastFn] = {
+BROADCAST = {
     "binary": broadcast_binary,
     "binomial": broadcast_binomial,
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """Build the worker CLI argument parser."""
-    parser = argparse.ArgumentParser(
-        description="CS 422 Assignment 5 PyTorch/Gloo collective worker."
-    )
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Assignment 5 Gloo worker.")
     parser.add_argument(
         "--operation",
         required=True,
         choices=("smoke", "allgather", "broadcast", "verify", "benchmark"),
-        help="Operation mode to execute across ranks.",
     )
-    parser.add_argument(
-        "--algorithm",
-        default=None,
-        help="Algorithm name (ring|recursive|swing for allgather; binary|binomial for broadcast).",
-    )
-    parser.add_argument(
-        "--message-bytes",
-        type=int,
-        default=1024,
-        help="Per-rank input size (AllGather) or root message size (Broadcast) in bytes.",
-    )
-    parser.add_argument(
-        "--iterations",
-        type=int,
-        default=1,
-        help="Number of iterations to execute.",
-    )
-    parser.add_argument(
-        "--root",
-        type=int,
-        default=DEFAULT_ROOT,
-        help="Root rank for Broadcast operations (default: 0).",
-    )
-    parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="Run correctness validation for the selected operation/algorithm.",
-    )
-    return parser
+    parser.add_argument("--algorithm", default=None)
+    parser.add_argument("--message-bytes", type=int, default=1024)
+    parser.add_argument("--iterations", type=int, default=1)
+    parser.add_argument("--verify", action="store_true")
+    args = parser.parse_args()
 
-
-def validate_args(args: argparse.Namespace) -> None:
-    """Validate CLI argument combinations before launching collectives."""
-    if args.message_bytes < 1:
-        raise ValueError(f"--message-bytes must be >= 1, got {args.message_bytes}.")
-    if args.iterations < 1:
-        raise ValueError(f"--iterations must be >= 1, got {args.iterations}.")
-    if args.operation == "allgather":
-        if args.algorithm not in ALLGATHER_ALGORITHMS:
-            valid = ", ".join(ALLGATHER_ALGORITHMS)
-            raise ValueError(f"--algorithm for allgather must be one of: {valid}")
-    elif args.operation == "broadcast":
-        if args.algorithm not in BROADCAST_ALGORITHMS:
-            valid = ", ".join(BROADCAST_ALGORITHMS)
-            raise ValueError(f"--algorithm for broadcast must be one of: {valid}")
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    """Initialize Gloo ranks and dispatch the requested operation."""
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    dist.init_process_group(backend="gloo")
     try:
-        validate_args(args)
-    except ValueError as exc:
-        parser.error(str(exc))
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
 
-    with distributed_context(backend="gloo") as (rank, world_size):
         if args.operation == "smoke":
-            passed = run_p2p_smoke_test(rank, world_size, args.message_bytes)
-            status = "PASS" if passed else "FAIL"
-            rank0_print(
-                rank,
-                f"[smoke] world_size={world_size} message_bytes={args.message_bytes}: {status}",
-            )
-            return 0 if passed else 1
+            ok = p2p_smoke_test(rank, world_size, args.message_bytes)
+            if rank == 0:
+                print(f"[smoke] world_size={world_size} message_bytes={args.message_bytes}: {'PASS' if ok else 'FAIL'}")
+            return 0 if ok else 1
 
-        if args.operation == "verify":
-            passed = run_verification_suite(rank, world_size)
-            return 0 if passed else 1
+        if args.operation == "verify" or args.verify:
+            return 0 if run_verification_suite(rank, world_size) else 1
 
         if args.operation == "benchmark":
-            run_benchmark(
-                rank=rank,
-                world_size=world_size,
-                operation="allgather",
-                algorithms=tuple(ALLGATHER_ALGORITHMS),
-            )
+            run_benchmark(rank, world_size)
             return 0
 
+        buf = make_rank_buffer(rank, args.message_bytes)
         if args.operation == "allgather":
-            ag_fn = ALLGATHER_ALGORITHMS[args.algorithm]
-            if args.verify:
-                passed = verify_allgather(ag_fn, rank, world_size, args.message_bytes)
-                return 0 if passed else 1
-            local_buf = make_rank_buffer(rank, args.message_bytes)
+            ag_fn = ALLGATHER[args.algorithm]
             for _ in range(args.iterations):
-                ag_fn(local_buf, rank, world_size)
-            return 0
-
-        if args.operation == "broadcast":
-            bcast_fn = BROADCAST_ALGORITHMS[args.algorithm]
-            if args.verify:
-                passed = verify_broadcast(
-                    bcast_fn, rank, world_size, args.message_bytes, root=args.root
-                )
-                return 0 if passed else 1
-            buf = make_rank_buffer(rank, args.message_bytes)
+                ag_fn(buf, rank, world_size)
+        elif args.operation == "broadcast":
+            bcast_fn = BROADCAST[args.algorithm]
             for _ in range(args.iterations):
-                bcast_fn(buf, rank, world_size, args.root)
-            return 0
-
-    return 0
+                bcast_fn(buf, rank, world_size, 0)
+        return 0
+    finally:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

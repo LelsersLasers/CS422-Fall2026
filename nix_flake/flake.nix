@@ -22,6 +22,7 @@
           networkx
           pytest
           gurobipy
+          torch
         ]);
 
         runtimeLibs = with pkgs; [

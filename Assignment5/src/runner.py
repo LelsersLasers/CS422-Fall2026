@@ -1,4 +1,4 @@
-"""Worker CLI runner and algorithm registry (Member 4 owns integration)."""
+"""Worker CLI runner and algorithm registry."""
 
 import argparse
 

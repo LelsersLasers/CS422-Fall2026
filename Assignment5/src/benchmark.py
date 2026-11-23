@@ -1,4 +1,4 @@
-"""Benchmark runner (Member 4)."""
+"""Benchmark runner."""
 
 CSV_COLUMNS = (
     "operation",
@@ -12,4 +12,4 @@ CSV_COLUMNS = (
 
 def run_benchmark(rank: int, world_size: int) -> None:
     """Run benchmark sweeps and save CSV + environment metadata to results/."""
-    raise NotImplementedError("run_benchmark not implemented yet (Member 4)")
+    raise NotImplementedError("run_benchmark not implemented yet")

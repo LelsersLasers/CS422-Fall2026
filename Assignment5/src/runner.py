@@ -125,25 +125,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.operation == "allgather":
-            fn = ALLGATHER_ALGORITHMS[args.algorithm]
+            ag_fn = ALLGATHER_ALGORITHMS[args.algorithm]
             if args.verify:
-                passed = verify_allgather(fn, rank, world_size, args.message_bytes)
+                passed = verify_allgather(ag_fn, rank, world_size, args.message_bytes)
                 return 0 if passed else 1
             local_buf = make_rank_buffer(rank, args.message_bytes)
             for _ in range(args.iterations):
-                fn(local_buf, rank, world_size)
+                ag_fn(local_buf, rank, world_size)
             return 0
 
         if args.operation == "broadcast":
-            fn = BROADCAST_ALGORITHMS[args.algorithm]
+            bcast_fn = BROADCAST_ALGORITHMS[args.algorithm]
             if args.verify:
                 passed = verify_broadcast(
-                    fn, rank, world_size, args.message_bytes, root=args.root
+                    bcast_fn, rank, world_size, args.message_bytes, root=args.root
                 )
                 return 0 if passed else 1
             buf = make_rank_buffer(rank, args.message_bytes)
             for _ in range(args.iterations):
-                fn(buf, rank, world_size, args.root)
+                bcast_fn(buf, rank, world_size, args.root)
             return 0
 
     return 0

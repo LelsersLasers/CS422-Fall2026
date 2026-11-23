@@ -100,10 +100,12 @@ def run_p2p_smoke_test(
         if rank == 0:
             send_buf = expected.clone()
             req = dist.isend(send_buf, dst=1)
+            assert req is not None
             req.wait()
         elif rank == 1:
             recv_buf = torch.empty_like(expected)
             req = dist.irecv(recv_buf, src=0)
+            assert req is not None
             req.wait()
             local_ok = int(torch.equal(recv_buf, expected))
 

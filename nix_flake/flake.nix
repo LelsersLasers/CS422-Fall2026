@@ -9,13 +9,19 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
         
         pythonEnv = pkgs.python3.withPackages (ps: with ps; [
           pip
           matplotlib
           numpy
           requests
+          networkx
+          pytest
+          gurobipy
         ]);
 
         runtimeLibs = with pkgs; [

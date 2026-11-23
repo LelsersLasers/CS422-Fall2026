@@ -6,19 +6,13 @@ PyTorch Distributed (Gloo backend) point-to-point implementations of:
 
 ## Setup
 
-### Generic Linux
+### Linux
 ```bash
 cd Assignment5
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -r requirements.txt
-```
-
-### NixOS
-From the repository root, use `direnv allow` or:
-```bash
-nix develop ./nix_flake
 ```
 
 ## Usage
@@ -49,10 +43,3 @@ def broadcast_*(data: torch.Tensor, rank: int, world_size: int, root: int = 0) -
 
 - 1D contiguous CPU `torch.uint8` tensors; do not mutate caller input.
 - Use `dist.isend`, `dist.irecv`, and `.wait()` (no `dist.all_gather` or `dist.broadcast` inside the algorithms).
-
-## Ownership
-
-- **Member 1:** `src/allgather_ring.py`, `src/broadcast_binary.py`
-- **Member 2:** `src/allgather_recursive.py`, `src/broadcast_binomial.py`
-- **Member 3:** `src/allgather_swing.py`, `src/correctness.py`
-- **Member 4:** `main.py`, `src/runner.py`, `src/benchmark.py`, `src/plot_results.py`, `results/`, `report/`, `README.md`

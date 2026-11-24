@@ -4,7 +4,6 @@ import inspect
 import sys
 from pathlib import Path
 
-import pytest
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -12,21 +11,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import common, runner  # noqa: E402
 
 
-def test_five_stubs_registered_with_frozen_signatures() -> None:
+def test_five_registered_with_frozen_signatures() -> None:
     assert set(runner.ALLGATHER) == {"ring", "recursive", "swing"}
     assert set(runner.BROADCAST) == {"binary", "binomial"}
 
     for ag_fn in runner.ALLGATHER.values():
         assert list(inspect.signature(ag_fn).parameters) == ["local_data", "rank", "world_size"]
-        with pytest.raises(NotImplementedError):
-            ag_fn(common.make_rank_buffer(0, 8), 0, 2)
 
     for bcast_fn in runner.BROADCAST.values():
         params = list(inspect.signature(bcast_fn).parameters.values())
         assert [p.name for p in params] == ["data", "rank", "world_size", "root"]
         assert params[3].default == 0
-        with pytest.raises(NotImplementedError):
-            bcast_fn(common.make_rank_buffer(0, 8), 0, 2, 0)
 
 
 def test_common_helpers() -> None:

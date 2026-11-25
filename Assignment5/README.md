@@ -19,11 +19,13 @@ python -m pip install -r requirements.txt
 
 Run from `Assignment5/` (or `python3 Assignment5/main.py ...` from repo root):
 ```bash
-python3 main.py smoke        # Gloo P2P smoke test at 2, 4, and 8 ranks
-python3 main.py verify       # Correctness suite (Member 3)
-python3 main.py benchmark    # Benchmark sweeps (Member 4)
-python3 main.py plot         # Generate plots (Member 4)
 python3 main.py              # Full pipeline: verify -> benchmark -> plot
+```
+```bash
+python3 main.py smoke        # Gloo P2P smoke test at 2, 4, and 8 ranks
+python3 main.py verify       # Correctness suite
+python3 main.py benchmark    # Benchmark sweeps
+python3 main.py plot         # Generate plots
 python3 -m pytest -v         # Basic contract tests
 ```
 
